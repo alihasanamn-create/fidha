@@ -2,194 +2,213 @@ import { useEffect, useState } from "react";
 import { db } from "./firebase";
 import {
   collection,
-  getDocs,
+  onSnapshot,
   addDoc,
   deleteDoc,
   doc,
   updateDoc,
 } from "firebase/firestore";
-import { motion } from "framer-motion";
-import DashboardHome from "./components/DashboardHome";
+import { generateReceipt } from "./utils/generateReceipt";
 
 export default function AdminDashboard() {
   const [students, setStudents] = useState([]);
+  const [form, setForm] = useState({});
+  const [search, setSearch] = useState("");
 
   const [name, setName] = useState("");
   const [adNo, setAdNo] = useState("");
+  const [className, setClassName] = useState("");
   const [balance, setBalance] = useState("");
 
-  const [editId, setEditId] = useState(null);
-
-  // FETCH
-  const fetchStudents = async () => {
-    const snapshot = await getDocs(collection(db, "students"));
-    const data = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    setStudents(data);
-  };
-
+  // 📡 REALTIME
   useEffect(() => {
-    fetchStudents();
+    const unsub = onSnapshot(collection(db, "students"), (snap) => {
+      setStudents(
+        snap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+      );
+    });
+    return () => unsub();
   }, []);
 
-  // ADD / UPDATE
-  const handleSave = async () => {
-    if (!name || !adNo || !balance) {
-      alert("Fill all fields");
-      return;
-    }
+  // ➕ ADD STUDENT
+  const handleAdd = async () => {
+    if (!name || !adNo) return alert("Fill all");
 
-    if (editId) {
-      await updateDoc(doc(db, "students", editId), {
-        name,
-        adNo,
-        balance: Number(balance),
-      });
-      setEditId(null);
-    } else {
-      await addDoc(collection(db, "students"), {
-        name,
-        adNo,
-        balance: Number(balance),
-      });
-    }
+    await addDoc(collection(db, "students"), {
+      name,
+      adNo,
+      className,
+      balance: Number(balance || 0),
+      password: adNo,
+    });
+
+    alert(`Login:\n${adNo} / ${adNo}`);
 
     setName("");
     setAdNo("");
+    setClassName("");
     setBalance("");
-
-    fetchStudents();
   };
 
-  // DELETE
+  // ❌ DELETE
   const deleteStudent = async (id) => {
     await deleteDoc(doc(db, "students", id));
-    fetchStudents();
   };
 
-  // EDIT
-  const editStudent = (student) => {
-    setName(student.name);
-    setAdNo(student.adNo);
-    setBalance(student.balance);
-    setEditId(student.id);
+  // 🔄 FORM PER STUDENT
+  const handleChange = (id, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        [field]: value,
+      },
+    }));
+  };
+
+  // 💰 TRANSACTION
+  const handleTransaction = async (student) => {
+    const data = form[student.id] || {};
+    const amount = Number(data.amount);
+    const reason = data.reason;
+    const type = data.type || "add";
+
+    if (!amount || !reason) return alert("Fill all");
+
+    const newBalance =
+      type === "add"
+        ? student.balance + amount
+        : student.balance - amount;
+
+    await updateDoc(doc(db, "students", student.id), {
+      balance: newBalance,
+    });
+
+    await addDoc(collection(db, "payments"), {
+      studentId: student.id,
+      amount,
+      reason,
+      type,
+      date: new Date().toLocaleDateString(),
+    });
+
+    setForm((prev) => ({ ...prev, [student.id]: {} }));
+  };
+
+  // 📄 CSV IMPORT
+  const handleCSVUpload = (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      const rows = event.target.result.split("\n").slice(1);
+
+      for (let row of rows) {
+        const [name, adNo, className] = row.split(",");
+
+        if (!name || !adNo) continue;
+
+        await addDoc(collection(db, "students"), {
+          name: name.trim(),
+          adNo: adNo.trim(),
+          className: className?.trim() || "",
+          balance: 0,
+          password: adNo.trim(),
+        });
+      }
+
+      alert("CSV Imported");
+    };
+
+    reader.readAsText(file);
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        padding: "20px",
-        background: "linear-gradient(135deg, #ffe6f0, #e6f0ff)",
-      }}
-    >
-      {/* DASHBOARD CARDS + CHART */}
-      <DashboardHome />
+    <div style={{ padding: "20px" }}>
+      <h2>Admin Dashboard</h2>
 
-      <h2 style={{ textAlign: "center", marginTop: "20px" }}>
-        Manage Students
-      </h2>
+      {/* SEARCH */}
+      <input
+        placeholder="Search by name or Ad No"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
 
-      {/* FORM */}
-      <motion.div
-        style={{
-          margin: "20px auto",
-          padding: "20px",
-          width: "300px",
-          borderRadius: "20px",
-          backdropFilter: "blur(15px)",
-          background: "rgba(255,255,255,0.3)",
-          boxShadow: "0 0 25px rgba(0,150,255,0.3)",
-        }}
-      >
-        <input
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
-        />
+      {/* CSV */}
+      <input type="file" accept=".csv" onChange={handleCSVUpload} />
 
-        <input
-          placeholder="Admission No"
-          value={adNo}
-          onChange={(e) => setAdNo(e.target.value)}
-          style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
-        />
+      {/* ADD STUDENT */}
+      <div>
+        <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <input placeholder="Ad No" value={adNo} onChange={(e) => setAdNo(e.target.value)} />
+        <input placeholder="Class" value={className} onChange={(e) => setClassName(e.target.value)} />
+        <input placeholder="Balance" value={balance} onChange={(e) => setBalance(e.target.value)} />
+        <button onClick={handleAdd}>Add Student</button>
+      </div>
 
-        <input
-          type="number"
-          placeholder="Balance"
-          value={balance}
-          onChange={(e) => setBalance(e.target.value)}
-          style={{ width: "100%", marginBottom: "10px", padding: "8px" }}
-        />
+      {/* STUDENTS */}
+      {students
+        .filter((s) =>
+          s.name.toLowerCase().includes(search.toLowerCase()) ||
+          s.adNo.includes(search)
+        )
+        .map((s) => {
+          const f = form[s.id] || {};
 
-        <button
-          onClick={handleSave}
-          style={{
-            width: "100%",
-            padding: "10px",
-            borderRadius: "20px",
-            border: "none",
-            background: "linear-gradient(135deg, #66ccff, #ff99cc)",
-            color: "white",
-          }}
-        >
-          {editId ? "Update Student" : "Add Student"}
-        </button>
-      </motion.div>
+          return (
+            <div key={s.id} style={{ border: "1px solid #ddd", margin: "10px", padding: "10px" }}>
+              <h3>{s.name}</h3>
+              <p>{s.adNo} | {s.className}</p>
+              <p>₹{s.balance}</p>
 
-      {/* STUDENT LIST */}
-      {students.map((student) => (
-        <motion.div
-          key={student.id}
-          style={{
-            margin: "10px auto",
-            padding: "15px",
-            width: "300px",
-            borderRadius: "15px",
-            background: "rgba(255,255,255,0.3)",
-            backdropFilter: "blur(10px)",
-            boxShadow: "0 0 15px rgba(0,150,255,0.3)",
-          }}
-        >
-          <h3>{student.name}</h3>
-          <p>Ad No: {student.adNo}</p>
-          <p>Balance: ₹{student.balance}</p>
+              <button onClick={() => deleteStudent(s.id)}>Delete</button>
 
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button
-              onClick={() => editStudent(student)}
-              style={{
-                flex: 1,
-                padding: "5px",
-                borderRadius: "10px",
-                border: "none",
-                background: "#66ccff",
-                color: "white",
-              }}
-            >
-              Edit
-            </button>
+              {/* TRANSACTION */}
+              <div style={{ border: "1px dashed blue", padding: "10px" }}>
+                <input
+                  placeholder="Amount"
+                  value={f.amount || ""}
+                  onChange={(e) => handleChange(s.id, "amount", e.target.value)}
+                />
 
-            <button
-              onClick={() => deleteStudent(student.id)}
-              style={{
-                flex: 1,
-                padding: "5px",
-                borderRadius: "10px",
-                border: "none",
-                background: "#ff4d6d",
-                color: "white",
-              }}
-            >
-              Delete
-            </button>
-          </div>
-        </motion.div>
-      ))}
+                <input
+                  placeholder="Reason"
+                  value={f.reason || ""}
+                  onChange={(e) => handleChange(s.id, "reason", e.target.value)}
+                />
+
+                <select
+                  value={f.type || "add"}
+                  onChange={(e) => handleChange(s.id, "type", e.target.value)}
+                >
+                  <option value="add">Add</option>
+                  <option value="deduct">Deduct</option>
+                </select>
+
+                <button onClick={() => handleTransaction(s)}>
+                  Update Balance
+                </button>
+
+                <button
+                  onClick={() =>
+                    generateReceipt({
+                      studentName: s.name,
+                      amount: f.amount,
+                      reason: f.reason,
+                      type: f.type || "add",
+                      date: new Date().toLocaleDateString(),
+                    })
+                  }
+                >
+                  Download Receipt
+                </button>
+              </div>
+            </div>
+          );
+        })}
     </div>
   );
 }
