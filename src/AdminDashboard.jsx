@@ -8,8 +8,6 @@ import {
   onSnapshot,
   updateDoc,
   getDocs,
-  query,
-  where,
 } from "firebase/firestore";
 
 import { db } from "./firebase";
@@ -26,106 +24,73 @@ export default function AdminDashboard({
   classFilter = "",
   downloadMode = false,
 }) {
-
   const [students, setStudents] = useState([]);
-
   const [payments, setPayments] = useState([]);
-
   const [form, setForm] = useState({});
-
   const [search, setSearch] = useState("");
 
   const [name, setName] = useState("");
-
   const [adNo, setAdNo] = useState("");
-
-  const [className, setClassName] =
-    useState("");
-
-  const [balance, setBalance] =
-    useState("");
+  const [className, setClassName] = useState("");
+  const [balance, setBalance] = useState("");
 
 
-  /*
-    Load students
-  */
+  /* =========================================================
+     LOAD STUDENTS
+  ========================================================= */
 
   useEffect(() => {
-
     const unsubscribe = onSnapshot(
       collection(db, "students"),
       (snapshot) => {
-
-        const data =
-          snapshot.docs.map(
-            (document) => ({
-              id: document.id,
-              ...document.data(),
-            })
-          );
+        const data = snapshot.docs.map((document) => ({
+          id: document.id,
+          ...document.data(),
+        }));
 
         setStudents(data);
       }
     );
 
     return () => unsubscribe();
-
   }, []);
 
 
-  /*
-    Load all payments.
-
-    Used by Downloads.
-  */
+  /* =========================================================
+     LOAD PAYMENTS
+  ========================================================= */
 
   useEffect(() => {
-
     const loadPayments = async () => {
-
       try {
+        const snapshot = await getDocs(
+          collection(db, "payments")
+        );
 
-        const snapshot =
-          await getDocs(
-            collection(db, "payments")
-          );
-
-        const data =
-          snapshot.docs.map(
-            (document) => ({
-              id: document.id,
-              ...document.data(),
-            })
-          );
+        const data = snapshot.docs.map((document) => ({
+          id: document.id,
+          ...document.data(),
+        }));
 
         setPayments(data);
-
       } catch (error) {
-
         console.error(
           "Payment loading error:",
           error
         );
-
       }
-
     };
 
     loadPayments();
-
   }, []);
 
 
-  /*
-    Add student
-  */
+  /* =========================================================
+     ADD STUDENT
+  ========================================================= */
 
   const handleAdd = async () => {
-
-    if (
-      !name.trim() ||
-      !adNo.trim()
-    ) {
+    if (!name.trim() || !adNo.trim()) {
       alert(
         "Name and Admission No are required"
       );
@@ -133,140 +98,105 @@ export default function AdminDashboard({
       return;
     }
 
-
     try {
-
       await addDoc(
         collection(db, "students"),
         {
           name: name.trim(),
-
           adNo: adNo.trim(),
-
-          className:
-            className.trim(),
-
-          balance:
-            Number(balance || 0),
-
-          password:
-            adNo.trim(),
+          className: className.trim(),
+          balance: Number(balance || 0),
+          password: adNo.trim(),
         }
       );
-
 
       alert(
         `Student added successfully.\n\nLogin:\n${adNo} / ${adNo}`
       );
 
-
       setName("");
-
       setAdNo("");
-
       setClassName("");
-
       setBalance("");
-
     } catch (error) {
-
       console.error(error);
 
       alert(
         "Failed to add student"
       );
-
     }
-
   };
 
 
-  /*
-    Delete student
-  */
+  /* =========================================================
+     DELETE STUDENT
+  ========================================================= */
 
   const deleteStudent = async (id) => {
-
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this student?"
-      );
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this student?"
+    );
 
     if (!confirmed) return;
 
-
     try {
-
       await deleteDoc(
         doc(db, "students", id)
       );
-
     } catch (error) {
-
       console.error(error);
 
       alert(
         "Failed to delete student"
       );
-
     }
-
   };
 
 
-  /*
-    Form change
-  */
+  /* =========================================================
+     FORM CHANGE
+  ========================================================= */
 
   const handleChange = (
     id,
     field,
     value
   ) => {
-
     setForm((previous) => ({
       ...previous,
 
       [id]: {
         ...previous[id],
-
         [field]: value,
       },
     }));
-
   };
 
 
-  /*
-    Add / deduct transaction
-  */
+  /* =========================================================
+     ADD / DEDUCT TRANSACTION
+  ========================================================= */
 
   const handleTransaction = async (
     student
   ) => {
-
     const data =
       form[student.id] || {};
-
 
     const amount =
       Number(data.amount);
 
-
     const reason =
       data.reason?.trim();
 
-
     const type =
       data.type || "add";
-
 
     if (
       !amount ||
       amount <= 0 ||
       !reason
     ) {
-
       alert(
         "Enter a valid amount and reason"
       );
@@ -274,21 +204,15 @@ export default function AdminDashboard({
       return;
     }
 
-
     const currentBalance =
-      Number(
-        student.balance || 0
-      );
-
+      Number(student.balance || 0);
 
     const newBalance =
       type === "add"
         ? currentBalance + amount
         : currentBalance - amount;
 
-
     try {
-
       await updateDoc(
         doc(
           db,
@@ -299,7 +223,6 @@ export default function AdminDashboard({
           balance: newBalance,
         }
       );
-
 
       await addDoc(
         collection(db, "payments"),
@@ -320,11 +243,6 @@ export default function AdminDashboard({
             new Date(),
         }
       );
-
-
-      /*
-        Immediately update local payment data
-      */
 
       setPayments((previous) => [
         ...previous,
@@ -350,53 +268,42 @@ export default function AdminDashboard({
         },
       ]);
 
-
       setForm((previous) => ({
         ...previous,
 
         [student.id]: {},
       }));
-
     } catch (error) {
-
       console.error(error);
 
       alert(
         "Transaction failed"
       );
-
     }
-
   };
 
 
-  /*
-    CSV import
-  */
+  /* =========================================================
+     CSV IMPORT
+  ========================================================= */
 
   const handleCSVUpload = (
     event
   ) => {
-
     const file =
       event.target.files?.[0];
 
     if (!file) return;
 
-
     const reader =
       new FileReader();
-
 
     reader.onload = async (
       loadEvent
     ) => {
-
       try {
-
         const text =
           loadEvent.target.result;
-
 
         const rows =
           text
@@ -404,11 +311,9 @@ export default function AdminDashboard({
             .slice(1)
             .filter(Boolean);
 
-
         for (
           const row of rows
         ) {
-
           const values =
             row
               .split(",")
@@ -421,13 +326,11 @@ export default function AdminDashboard({
                   )
               );
 
-
           const [
             csvName,
             csvAdNo,
             csvClass,
           ] = values;
-
 
           if (
             !csvName ||
@@ -435,7 +338,6 @@ export default function AdminDashboard({
           ) {
             continue;
           }
-
 
           await addDoc(
             collection(
@@ -452,43 +354,36 @@ export default function AdminDashboard({
               className:
                 csvClass || "",
 
-              balance: 0,
+              balance:
+                0,
 
               password:
                 csvAdNo,
             }
           );
-
         }
-
 
         alert(
           "CSV imported successfully"
         );
-
       } catch (error) {
-
         console.error(error);
 
         alert(
           "CSV import failed"
         );
-
       }
-
     };
-
 
     reader.readAsText(file);
 
     event.target.value = "";
-
   };
 
 
-  /*
-    Apply class filter
-  */
+  /* =========================================================
+     CLASS FILTER
+  ========================================================= */
 
   const classStudents =
     classFilter
@@ -504,58 +399,47 @@ export default function AdminDashboard({
       : students;
 
 
-  /*
-    Apply search
-  */
+  /* =========================================================
+     SEARCH
+  ========================================================= */
 
   const filteredStudents =
     useMemo(() => {
-
       const searchText =
         search
           .toLowerCase()
           .trim();
 
-
       if (!searchText) {
         return classStudents;
       }
-
 
       return classStudents.filter(
         (student) =>
           student.name
             ?.toLowerCase()
-            .includes(
-              searchText
-            ) ||
+            .includes(searchText) ||
 
           student.adNo
             ?.toLowerCase()
-            .includes(
-              searchText
-            ) ||
+            .includes(searchText) ||
 
           student.className
             ?.toLowerCase()
-            .includes(
-              searchText
-            )
+            .includes(searchText)
       );
-
     }, [
       classStudents,
       search,
     ]);
 
 
-  /*
-    Class balance
-  */
+  /* =========================================================
+     CLASS BALANCE
+  ========================================================= */
 
   const totalBalance =
     useMemo(() => {
-
       return classStudents.reduce(
         (total, student) =>
           total +
@@ -564,18 +448,16 @@ export default function AdminDashboard({
           ),
         0
       );
-
     }, [classStudents]);
 
 
-  /*
-    Get payments of student
-  */
+  /* =========================================================
+     STUDENT PAYMENTS
+  ========================================================= */
 
   const getStudentPayments = (
     studentId
   ) => {
-
     return payments
       .filter(
         (payment) =>
@@ -587,59 +469,51 @@ export default function AdminDashboard({
           getPaymentTime(b) -
           getPaymentTime(a)
       );
-
   };
 
 
-  /*
-    Download individual PDF
-  */
+  /* =========================================================
+     STUDENT PDF
+  ========================================================= */
 
   const downloadStudentPDF =
     (student) => {
-
       const studentPayments =
         getStudentPayments(
           student.id
         );
-
 
       exportStudentBalancePDF(
         student,
         studentPayments
       );
-
     };
 
 
-  /*
-    Download individual CSV
-  */
+  /* =========================================================
+     STUDENT CSV
+  ========================================================= */
 
   const downloadStudentCSV =
     (student) => {
-
       const studentPayments =
         getStudentPayments(
           student.id
         );
 
-
       exportStudentTransactionsCSV(
         student,
         studentPayments
       );
-
     };
 
 
-  /*
-    Download class PDF
-  */
+  /* =========================================================
+     CLASS PDF
+  ========================================================= */
 
   const downloadClassPDF =
     (classNameToDownload) => {
-
       const classData =
         students.filter(
           (student) =>
@@ -650,23 +524,20 @@ export default function AdminDashboard({
               .trim()
               .toLowerCase()
         );
-
 
       exportClassBalancePDF(
         classData,
         classNameToDownload
       );
-
     };
 
 
-  /*
-    Download class CSV
-  */
+  /* =========================================================
+     CLASS CSV
+  ========================================================= */
 
   const downloadClassCSV =
     (classNameToDownload) => {
-
       const classData =
         students.filter(
           (student) =>
@@ -678,21 +549,18 @@ export default function AdminDashboard({
               .toLowerCase()
         );
 
-
       exportClassCSV(
         classData,
         classNameToDownload
       );
-
     };
 
 
-  /*
-    DOWNLOAD PAGE
-  */
+  /* =========================================================
+     DOWNLOAD MODE
+  ========================================================= */
 
   if (downloadMode) {
-
     return (
       <DownloadSection
         students={students}
@@ -711,13 +579,12 @@ export default function AdminDashboard({
         }
       />
     );
-
   }
 
 
-  /*
-    NORMAL DASHBOARD
-  */
+  /* =========================================================
+     NORMAL DASHBOARD
+  ========================================================= */
 
   const title =
     classFilter
@@ -728,12 +595,13 @@ export default function AdminDashboard({
   return (
     <div className="admin-dashboard">
 
-      {/* Header */}
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
       <header className="dashboard-heading">
 
         <div>
-
           <span>
             SMAC • FIDHA ACCOUNTS
           </span>
@@ -747,14 +615,12 @@ export default function AdminDashboard({
               ? `Viewing only ${classFilter} students`
               : "Manage students, balances and transactions."}
           </p>
-
         </div>
 
 
         <div className="dashboard-stats">
 
           <div>
-
             <small>
               STUDENTS
             </small>
@@ -762,12 +628,10 @@ export default function AdminDashboard({
             <strong>
               {classStudents.length}
             </strong>
-
           </div>
 
 
           <div>
-
             <small>
               TOTAL BALANCE
             </small>
@@ -777,7 +641,6 @@ export default function AdminDashboard({
                 "en-IN"
               )}
             </strong>
-
           </div>
 
         </div>
@@ -785,7 +648,9 @@ export default function AdminDashboard({
       </header>
 
 
-      {/* Add Student only on main dashboard */}
+      {/* =====================================================
+          ADD STUDENT
+      ===================================================== */}
 
       {!classFilter && (
         <section className="add-student-card">
@@ -793,7 +658,6 @@ export default function AdminDashboard({
           <div className="section-heading">
 
             <div>
-
               <span>
                 STUDENT MANAGEMENT
               </span>
@@ -801,7 +665,6 @@ export default function AdminDashboard({
               <h2>
                 Add Student
               </h2>
-
             </div>
 
           </div>
@@ -813,7 +676,9 @@ export default function AdminDashboard({
               placeholder="Student Name"
               value={name}
               onChange={(e) =>
-                setName(e.target.value)
+                setName(
+                  e.target.value
+                )
               }
             />
 
@@ -822,7 +687,9 @@ export default function AdminDashboard({
               placeholder="Admission No"
               value={adNo}
               onChange={(e) =>
-                setAdNo(e.target.value)
+                setAdNo(
+                  e.target.value
+                )
               }
             />
 
@@ -863,7 +730,9 @@ export default function AdminDashboard({
       )}
 
 
-      {/* Search */}
+      {/* =====================================================
+          SEARCH
+      ===================================================== */}
 
       <section className="tools-row">
 
@@ -909,7 +778,9 @@ export default function AdminDashboard({
       </section>
 
 
-      {/* Students */}
+      {/* =====================================================
+          STUDENTS
+      ===================================================== */}
 
       <section className="students-section">
 
@@ -956,12 +827,13 @@ export default function AdminDashboard({
                     student.id
                   ] || {};
 
-
                 return (
                   <div
                     className="student-card"
                     key={student.id}
                   >
+
+                    {/* STUDENT TOP */}
 
                     <div className="student-top">
 
@@ -995,12 +867,15 @@ export default function AdminDashboard({
                             student.id
                           )
                         }
+                        title="Delete student"
                       >
                         ×
                       </button>
 
                     </div>
 
+
+                    {/* BALANCE */}
 
                     <div className="student-balance">
 
@@ -1019,6 +894,8 @@ export default function AdminDashboard({
 
                     </div>
 
+
+                    {/* TRANSACTION */}
 
                     <div className="transaction-form">
 
@@ -1045,6 +922,7 @@ export default function AdminDashboard({
 
 
                       <input
+                        className="reason-input"
                         placeholder="Reason"
                         value={
                           studentForm.reason ||
@@ -1105,14 +983,13 @@ export default function AdminDashboard({
                           )
                         }
                       >
-                        Download Account
+                        ↓ Download Account PDF
                       </button>
 
                     </div>
 
                   </div>
                 );
-
               }
             )}
 
@@ -1123,6 +1000,10 @@ export default function AdminDashboard({
       </section>
 
 
+      {/* =====================================================
+          ADMIN DASHBOARD STYLES
+      ===================================================== */}
+
       <style>{`
 
         .admin-dashboard {
@@ -1130,7 +1011,10 @@ export default function AdminDashboard({
             1250px;
 
           margin:
-            auto;
+            0 auto;
+
+          width:
+            100%;
         }
 
 
@@ -1176,6 +1060,9 @@ export default function AdminDashboard({
 
           font-size:
             32px;
+
+          line-height:
+            1.15;
         }
 
 
@@ -1267,7 +1154,12 @@ export default function AdminDashboard({
 
           box-shadow:
             0 10px 30px
-            rgba(6,59,70,.04);
+            rgba(
+              6,
+              59,
+              70,
+              .04
+            );
         }
 
 
@@ -1316,6 +1208,12 @@ export default function AdminDashboard({
           width:
             100%;
 
+          min-width:
+            0;
+
+          box-sizing:
+            border-box;
+
           border:
             1px solid #dfeae7;
 
@@ -1344,7 +1242,12 @@ export default function AdminDashboard({
 
           box-shadow:
             0 0 0 3px
-            rgba(7,149,109,.07);
+            rgba(
+              7,
+              149,
+              109,
+              .07
+            );
         }
 
 
@@ -1396,7 +1299,12 @@ export default function AdminDashboard({
 
           box-shadow:
             0 7px 16px
-            rgba(7,149,109,.18);
+            rgba(
+              7,
+              149,
+              109,
+              .18
+            );
         }
 
 
@@ -1452,6 +1360,9 @@ export default function AdminDashboard({
           flex:
             1;
 
+          min-width:
+            0;
+
           border:
             0;
 
@@ -1471,6 +1382,9 @@ export default function AdminDashboard({
             flex;
 
           align-items:
+            center;
+
+          justify-content:
             center;
 
           padding:
@@ -1535,6 +1449,10 @@ export default function AdminDashboard({
         }
 
 
+        /* =====================================================
+           STUDENT GRID
+        ===================================================== */
+
         .students-grid {
           display:
             grid;
@@ -1542,7 +1460,10 @@ export default function AdminDashboard({
           grid-template-columns:
             repeat(
               2,
-              minmax(0,1fr)
+              minmax(
+                0,
+                1fr
+              )
             );
 
           gap:
@@ -1551,6 +1472,9 @@ export default function AdminDashboard({
 
 
         .student-card {
+          min-width:
+            0;
+
           padding:
             16px;
 
@@ -1575,7 +1499,12 @@ export default function AdminDashboard({
 
           box-shadow:
             0 12px 25px
-            rgba(6,59,70,.07);
+            rgba(
+              6,
+              59,
+              70,
+              .07
+            );
         }
 
 
@@ -1642,6 +1571,15 @@ export default function AdminDashboard({
 
           font-size:
             14px;
+
+          white-space:
+            nowrap;
+
+          overflow:
+            hidden;
+
+          text-overflow:
+            ellipsis;
         }
 
 
@@ -1654,6 +1592,15 @@ export default function AdminDashboard({
 
           font-size:
             9px;
+
+          white-space:
+            nowrap;
+
+          overflow:
+            hidden;
+
+          text-overflow:
+            ellipsis;
         }
 
 
@@ -1663,6 +1610,9 @@ export default function AdminDashboard({
 
           height:
             28px;
+
+          flex-shrink:
+            0;
 
           border:
             0;
@@ -1729,12 +1679,16 @@ export default function AdminDashboard({
         }
 
 
+        /* =====================================================
+           TRANSACTION FORM
+        ===================================================== */
+
         .transaction-form {
           display:
             grid;
 
           grid-template-columns:
-            .7fr 1.4fr .7fr;
+            .75fr 1.45fr .75fr;
 
           gap:
             7px;
@@ -1813,12 +1767,17 @@ export default function AdminDashboard({
         }
 
 
-        @media(max-width:1000px) {
+        /* =====================================================
+           TABLET
+        ===================================================== */
+
+        @media (max-width: 1000px) {
 
           .student-form {
             grid-template-columns:
               1fr 1fr;
           }
+
 
           .primary-button {
             padding:
@@ -1828,12 +1787,13 @@ export default function AdminDashboard({
         }
 
 
-        @media(max-width:750px) {
+        @media (max-width: 750px) {
 
           .dashboard-heading {
             flex-direction:
               column;
           }
+
 
           .students-grid {
             grid-template-columns:
@@ -1843,49 +1803,383 @@ export default function AdminDashboard({
         }
 
 
-        @media(max-width:550px) {
+        /* =====================================================
+           MOBILE
+        ===================================================== */
+
+        @media (max-width: 550px) {
+
+          .admin-dashboard {
+            width:
+              100%;
+
+            overflow:
+              hidden;
+          }
+
+
+          .dashboard-heading {
+            gap:
+              12px;
+
+            margin-bottom:
+              14px;
+          }
+
+
+          .dashboard-heading h1 {
+            font-size:
+              24px;
+          }
+
+
+          .dashboard-heading p {
+            font-size:
+              11px;
+          }
+
+
+          .dashboard-stats {
+            width:
+              100%;
+
+            gap:
+              7px;
+          }
+
+
+          .dashboard-stats > div {
+            flex:
+              1;
+
+            min-width:
+              0;
+
+            padding:
+              10px;
+
+            border-radius:
+              11px;
+          }
+
+
+          .dashboard-stats strong {
+            font-size:
+              15px;
+          }
+
+
+          .add-student-card,
+          .students-section {
+            padding:
+              14px;
+
+            margin-bottom:
+              12px;
+
+            border-radius:
+              15px;
+          }
+
+
+          .section-heading {
+            margin-bottom:
+              12px;
+          }
+
+
+          .section-heading h2 {
+            font-size:
+              16px;
+          }
+
 
           .student-form {
             grid-template-columns:
               1fr;
+
+            gap:
+              7px;
           }
+
+
+          .student-form input {
+            height:
+              42px;
+
+            padding:
+              9px 11px;
+          }
+
+
+          .primary-button {
+            height:
+              42px;
+
+            padding:
+              0 12px;
+          }
+
 
           .tools-row {
             flex-direction:
               column;
+
+            gap:
+              7px;
+
+            margin-bottom:
+              12px;
           }
+
+
+          .search-box {
+            min-height:
+              42px;
+          }
+
+
+          .search-box input {
+            font-size:
+              11px;
+
+            padding:
+              10px 0;
+          }
+
 
           .csv-button {
             min-height:
-              42px;
+              40px;
 
             justify-content:
               center;
           }
 
+
+          .student-count {
+            width:
+              27px;
+
+            height:
+              27px;
+          }
+
+
+          /* COMPACT STUDENT CARD */
+
+          .students-grid {
+            gap:
+              8px;
+          }
+
+
+          .student-card {
+            padding:
+              11px;
+
+            border-radius:
+              13px;
+          }
+
+
+          .student-card:hover {
+            transform:
+              none;
+          }
+
+
+          .student-top {
+            gap:
+              8px;
+          }
+
+
+          .student-avatar {
+            width:
+              34px;
+
+            height:
+              34px;
+
+            border-radius:
+              10px;
+
+            font-size:
+              13px;
+          }
+
+
+          .student-info h3 {
+            font-size:
+              12px;
+          }
+
+
+          .student-info p {
+            margin-top:
+              2px;
+
+            font-size:
+              8px;
+          }
+
+
+          .delete-button {
+            width:
+              25px;
+
+            height:
+              25px;
+
+            font-size:
+              15px;
+          }
+
+
+          .student-balance {
+            margin:
+              9px 0;
+
+            padding:
+              9px;
+
+            border-radius:
+              10px;
+          }
+
+
+          .student-balance small {
+            font-size:
+              7px;
+          }
+
+
+          .student-balance strong {
+            margin-top:
+              2px;
+
+            font-size:
+              18px;
+          }
+
+
+          /* COMPACT TRANSACTION AREA */
+
           .transaction-form {
             grid-template-columns:
-              1fr;
+              1fr 1.35fr;
+
+            gap:
+              6px;
           }
+
 
           .transaction-title {
             grid-column:
-              auto;
+              1 / -1;
+
+            font-size:
+              9px;
           }
 
-          .download-student-button {
+
+          .transaction-form input,
+          .transaction-form select {
+            height:
+              38px;
+
+            padding:
+              8px;
+
+            border-radius:
+              8px;
+
+            font-size:
+              10px;
+          }
+
+
+          .transaction-form .reason-input {
             grid-column:
               auto;
           }
 
-          .dashboard-stats {
-            width:
-              100%;
+
+          .transaction-form select {
+            grid-column:
+              auto;
           }
 
-          .dashboard-stats > div {
-            flex:
-              1;
+
+          .update-button {
+            height:
+              38px;
+
+            padding:
+              7px;
+
+            font-size:
+              9px;
+          }
+
+
+          .download-student-button {
+            grid-column:
+              1 / -1;
+
+            height:
+              36px;
+
+            padding:
+              7px;
+
+            font-size:
+              9px;
+          }
+
+
+          .empty-students {
+            padding:
+              35px 15px;
+          }
+
+        }
+
+
+        /* VERY SMALL PHONES */
+
+        @media (max-width: 360px) {
+
+          .add-student-card,
+          .students-section {
+            padding:
+              11px;
+          }
+
+
+          .student-card {
+            padding:
+              9px;
+          }
+
+
+          .student-balance strong {
+            font-size:
+              17px;
+          }
+
+
+          .transaction-form {
+            gap:
+              5px;
+          }
+
+
+          .transaction-form input,
+          .transaction-form select {
+            font-size:
+              9px;
           }
 
         }
@@ -1909,14 +2203,12 @@ function DownloadSection({
   downloadClassPDF,
   downloadClassCSV,
 }) {
-
   const [search, setSearch] =
     useState("");
 
 
   const filteredStudents =
     students.filter((student) => {
-
       const text =
         search
           .toLowerCase()
@@ -1937,7 +2229,6 @@ function DownloadSection({
           ?.toLowerCase()
           .includes(text)
       );
-
     });
 
 
@@ -1955,6 +2246,10 @@ function DownloadSection({
 
   return (
     <div className="download-page">
+
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
       <div className="download-heading">
 
@@ -1975,7 +2270,9 @@ function DownloadSection({
       </div>
 
 
-      {/* Class downloads */}
+      {/* =====================================================
+          CLASS REPORTS
+      ===================================================== */}
 
       <section className="download-panel">
 
@@ -2023,7 +2320,10 @@ function DownloadSection({
 
                 const balance =
                   classStudents.reduce(
-                    (total, student) =>
+                    (
+                      total,
+                      student
+                    ) =>
                       total +
                       Number(
                         student.balance ||
@@ -2104,7 +2404,6 @@ function DownloadSection({
 
                   </div>
                 );
-
               }
             )}
 
@@ -2115,7 +2414,9 @@ function DownloadSection({
       </section>
 
 
-      {/* Individual downloads */}
+      {/* =====================================================
+          INDIVIDUAL REPORTS
+      ===================================================== */}
 
       <section className="download-panel">
 
@@ -2183,9 +2484,11 @@ function DownloadSection({
                   >
 
                     <div className="download-student-avatar">
+
                       {student.name
                         ?.charAt(0)
                         ?.toUpperCase()}
+
                     </div>
 
 
@@ -2262,7 +2565,6 @@ function DownloadSection({
 
                   </div>
                 );
-
               }
             )
 
@@ -2273,6 +2575,10 @@ function DownloadSection({
       </section>
 
 
+      {/* =====================================================
+          DOWNLOAD PAGE STYLES
+      ===================================================== */}
+
       <style>{`
 
         .download-page {
@@ -2280,7 +2586,10 @@ function DownloadSection({
             1200px;
 
           margin:
-            auto;
+            0 auto;
+
+          width:
+            100%;
         }
 
 
@@ -2348,7 +2657,12 @@ function DownloadSection({
 
           box-shadow:
             0 10px 30px
-            rgba(6,59,70,.04);
+            rgba(
+              6,
+              59,
+              70,
+              .04
+            );
         }
 
 
@@ -2383,7 +2697,10 @@ function DownloadSection({
           grid-template-columns:
             repeat(
               3,
-              minmax(0,1fr)
+              minmax(
+                0,
+                1fr
+              )
             );
 
           gap:
@@ -2416,7 +2733,12 @@ function DownloadSection({
 
           box-shadow:
             0 10px 22px
-            rgba(6,59,70,.07);
+            rgba(
+              6,
+              59,
+              70,
+              .07
+            );
         }
 
 
@@ -2636,6 +2958,9 @@ function DownloadSection({
           flex:
             1;
 
+          min-width:
+            0;
+
           border:
             0;
 
@@ -2655,13 +2980,10 @@ function DownloadSection({
 
         .individual-download-list {
           display:
-            flex;
-
-          flex-direction:
-            column;
+            grid;
 
           gap:
-            7px;
+            8px;
         }
 
 
@@ -2673,10 +2995,10 @@ function DownloadSection({
             center;
 
           gap:
-            12px;
+            11px;
 
           padding:
-            10px;
+            11px;
 
           border:
             1px solid #e7efed;
@@ -2685,11 +3007,11 @@ function DownloadSection({
             13px;
 
           background:
-            #fcfefd;
+            #fbfdfc;
 
           transition:
-            transform .18s,
-            box-shadow .18s;
+            transform .2s,
+            box-shadow .2s;
         }
 
 
@@ -2699,7 +3021,12 @@ function DownloadSection({
 
           box-shadow:
             0 7px 18px
-            rgba(6,59,70,.06);
+            rgba(
+              6,
+              59,
+              70,
+              .06
+            );
         }
 
 
@@ -2838,12 +3165,13 @@ function DownloadSection({
         }
 
 
-        @media(max-width:900px) {
+        @media (max-width: 900px) {
 
           .class-download-grid {
             grid-template-columns:
               1fr 1fr;
           }
+
 
           .individual-download-card {
             flex-wrap:
@@ -2853,12 +3181,99 @@ function DownloadSection({
         }
 
 
-        @media(max-width:600px) {
+        @media (max-width: 600px) {
+
+          .download-page {
+            width:
+              100%;
+          }
+
+
+          .download-heading {
+            margin-bottom:
+              14px;
+          }
+
+
+          .download-heading h1 {
+            font-size:
+              24px;
+          }
+
+
+          .download-heading p {
+            font-size:
+              11px;
+          }
+
+
+          .download-panel {
+            padding:
+              13px;
+
+            margin-bottom:
+              12px;
+
+            border-radius:
+              15px;
+          }
+
+
+          .download-panel-heading {
+            margin-bottom:
+              12px;
+          }
+
+
+          .download-panel-heading h2 {
+            font-size:
+              15px;
+          }
+
 
           .class-download-grid {
             grid-template-columns:
               1fr;
           }
+
+
+          .class-download-card {
+            padding:
+              12px;
+          }
+
+
+          .individual-download-card {
+            padding:
+              9px;
+
+            gap:
+              8px;
+
+            border-radius:
+              11px;
+          }
+
+
+          .download-student-avatar {
+            width:
+              32px;
+
+            height:
+              32px;
+
+            border-radius:
+              9px;
+          }
+
+
+          .individual-student-info {
+            min-width:
+              calc(
+                100% - 45px
+              );
+          }
+
 
           .individual-balance,
           .individual-transactions {
@@ -2866,10 +3281,12 @@ function DownloadSection({
               70px;
           }
 
+
           .individual-download-buttons {
             width:
               100%;
           }
+
 
           .individual-download-buttons button {
             flex:
@@ -2886,7 +3303,7 @@ function DownloadSection({
 
 
 /* =========================================================
-   DATE HELPER
+   PAYMENT DATE HELPER
 ========================================================= */
 
 function getPaymentTime(payment) {

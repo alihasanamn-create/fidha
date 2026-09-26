@@ -4,169 +4,170 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { motion } from "framer-motion";
 
 export default function Login({ setUser }) {
-  const [mode, setMode] = useState("admin"); // admin first
+  const [mode, setMode] = useState("admin");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    // 👨‍👩‍👦 PARENT LOGIN
-    if (mode === "parent") {
-      const q = query(
-        collection(db, "students"),
-        where("adNo", "==", username)
-      );
-
-      const snap = await getDocs(q);
-
-      if (snap.empty) {
-        alert("User not found");
-        return;
-      }
-
-      const docData = snap.docs[0];
-      const data = docData.data();
-
-      if (data.password !== password) {
-        alert("Wrong password");
-        return;
-      }
-
-      setUser({
-        role: "parent",
-        id: docData.id,
-        student: data,
-      });
+    if (!username.trim() || !password.trim()) {
+      alert("Please enter your login details");
+      return;
     }
 
-    // 👨‍💼 ADMIN LOGIN
-    if (mode === "admin") {
-      if (username === "admin" && password === "admin123") {
-        setUser({ role: "admin" });
-      } else {
-        alert("Invalid admin login");
+    setLoading(true);
+
+    try {
+      // 👨‍👩‍👦 PARENT LOGIN
+      if (mode === "parent") {
+        const q = query(
+          collection(db, "students"),
+          where("adNo", "==", username.trim())
+        );
+
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          alert("User not found");
+          return;
+        }
+
+        const docData = snap.docs[0];
+        const data = docData.data();
+
+        if (data.password !== password) {
+          alert("Wrong password");
+          return;
+        }
+
+        setUser({
+          role: "parent",
+          id: docData.id,
+          student: data,
+        });
+
+        return;
       }
+
+      // 👨‍💼 ADMIN LOGIN
+      if (mode === "admin") {
+        if (
+          username.trim() === "admin" &&
+          password === "admin123"
+        ) {
+          setUser({ role: "admin" });
+        } else {
+          alert("Invalid admin login");
+        }
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    setUsername("");
+    setPassword("");
+  };
+
   return (
-    <div style={pageStyle}>
+    <div className="login-page">
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        style={cardStyle}
+        className="login-card"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45 }}
       >
-        <h2 style={{ marginBottom: "20px" }}>
-          {mode === "admin" ? "Admin Login" : "Parent Login"}
-        </h2>
+        {/* LOGO */}
+        <div className="login-logo">
+          F
+        </div>
+
+        <h1 className="login-title">
+          Fidha Accounts
+        </h1>
+
+        <p className="login-subtitle">
+          {mode === "admin"
+            ? "Administration Portal"
+            : "Parent Portal"}
+        </p>
 
         {/* MODE SWITCH */}
-        <div style={{ marginBottom: "20px" }}>
+        <div className="login-tabs">
           <button
-            onClick={() => setMode("admin")}
-            style={{
-              ...tabStyle,
-              background: mode === "admin" ? "#0044ff" : "transparent",
-              color: mode === "admin" ? "white" : "#0044ff",
-            }}
+            type="button"
+            onClick={() => switchMode("admin")}
+            className={`login-tab ${
+              mode === "admin" ? "active" : ""
+            }`}
           >
             Admin
           </button>
 
           <button
-            onClick={() => setMode("parent")}
-            style={{
-              ...tabStyle,
-              background: mode === "parent" ? "#0044ff" : "transparent",
-              color: mode === "parent" ? "white" : "#0044ff",
-            }}
+            type="button"
+            onClick={() => switchMode("parent")}
+            className={`login-tab ${
+              mode === "parent" ? "active" : ""
+            }`}
           >
             Parent
           </button>
         </div>
 
-        {/* INPUTS */}
-        <motion.input
-          whileHover={{ scale: 1.05 }}
-          whileFocus={{ scale: 1.05 }}
+        {/* USERNAME */}
+        <input
+          className="login-input"
+          value={username}
           placeholder={
-            mode === "parent" ? "Admission No" : "Username"
+            mode === "parent"
+              ? "Admission No"
+              : "Username"
           }
+          autoComplete="username"
           onChange={(e) => setUsername(e.target.value)}
-          style={inputStyle}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleLogin();
+            }
+          }}
         />
 
-        <motion.input
-          whileHover={{ scale: 1.05 }}
-          whileFocus={{ scale: 1.05 }}
+        {/* PASSWORD */}
+        <input
+          className="login-input"
+          value={password}
           type="password"
           placeholder="Password"
+          autoComplete="current-password"
           onChange={(e) => setPassword(e.target.value)}
-          style={inputStyle}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleLogin();
+            }
+          }}
         />
 
-        {/* LOGIN BUTTON */}
+        {/* LOGIN */}
         <motion.button
-          whileHover={{
-            scale: 1.08,
-            boxShadow: "0 0 20px rgba(0,100,255,0.5)",
-          }}
-          whileTap={{ scale: 0.95 }}
+          type="button"
+          className="login-button"
+          whileTap={{ scale: 0.97 }}
           onClick={handleLogin}
-          style={btnStyle}
+          disabled={loading}
         >
-          Login
+          {loading ? "Signing in..." : "Login"}
         </motion.button>
+
+        <p className="login-footer">
+          SMAC • Fidha Accounts
+        </p>
       </motion.div>
     </div>
   );
 }
-
-/* 🎨 STYLES */
-
-const pageStyle = {
-  height: "100vh",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  background: "linear-gradient(135deg,#e6ecff,#f5f7ff)",
-};
-
-const cardStyle = {
-  padding: "40px",
-  borderRadius: "20px",
-  background: "rgba(255,255,255,0.25)",
-  backdropFilter: "blur(15px)",
-  boxShadow: "0 0 40px rgba(0,100,255,0.2)",
-  width: "300px",
-  textAlign: "center",
-};
-
-const tabStyle = {
-  padding: "8px 15px",
-  borderRadius: "20px",
-  border: "2px solid #0044ff",
-  marginRight: "10px",
-  cursor: "pointer",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "12px",
-  marginBottom: "15px",
-  borderRadius: "20px",
-  border: "2px solid rgba(0,100,255,0.5)",
-  background: "transparent",
-  outline: "none",
-  transition: "0.3s",
-};
-
-const btnStyle = {
-  width: "100%",
-  padding: "12px",
-  borderRadius: "20px",
-  border: "none",
-  background: "linear-gradient(135deg,#0044ff,#6699ff)",
-  color: "white",
-  cursor: "pointer",
-};

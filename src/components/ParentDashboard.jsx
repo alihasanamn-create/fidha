@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../firebase";
+import { exportStudentBalancePDF } from "../utils/exportPDF";
 
 
 /*
@@ -50,7 +51,6 @@ export default function ParentDashboard({
   const [loading, setLoading] =
     useState(true);
 
-
   const student =
     user?.student;
 
@@ -70,7 +70,6 @@ export default function ParentDashboard({
 
           setLoading(true);
 
-
           const q =
             query(
               collection(
@@ -85,10 +84,8 @@ export default function ParentDashboard({
               )
             );
 
-
           const snap =
             await getDocs(q);
-
 
           const data =
             snap.docs.map(
@@ -100,13 +97,11 @@ export default function ParentDashboard({
               })
             );
 
-
           data.sort(
             (a, b) =>
               getTransactionTime(a) -
               getTransactionTime(b)
           );
-
 
           setTransactions(data);
 
@@ -124,7 +119,6 @@ export default function ParentDashboard({
         }
 
       };
-
 
     fetchTransactions();
 
@@ -145,7 +139,6 @@ export default function ParentDashboard({
       return transaction.createdAt.toMillis();
     }
 
-
     if (
       transaction.createdAt?.seconds
     ) {
@@ -154,7 +147,6 @@ export default function ParentDashboard({
         1000
       );
     }
-
 
     if (
       transaction.date?.seconds
@@ -165,12 +157,10 @@ export default function ParentDashboard({
       );
     }
 
-
     const time =
       new Date(
         transaction.date || 0
       ).getTime();
-
 
     return Number.isNaN(time)
       ? 0
@@ -191,31 +181,25 @@ export default function ParentDashboard({
         transaction
       );
 
-
     if (!time) {
       return "--/--/----";
     }
 
-
     const date =
       new Date(time);
-
 
     const day =
       String(
         date.getDate()
       ).padStart(2, "0");
 
-
     const month =
       String(
         date.getMonth() + 1
       ).padStart(2, "0");
 
-
     const year =
       date.getFullYear();
-
 
     return `${day}/${month}/${year}`;
   }
@@ -306,14 +290,12 @@ export default function ParentDashboard({
         return [];
       }
 
-
       const ordered =
         [...transactions].sort(
           (a, b) =>
             getTransactionTime(a) -
             getTransactionTime(b)
         );
-
 
       if (
         ordered.length === 0
@@ -332,15 +314,12 @@ export default function ParentDashboard({
 
       }
 
-
       let currentBalance =
         Number(
           student.balance || 0
         );
 
-
       const result = [];
-
 
       for (
         let i =
@@ -354,7 +333,6 @@ export default function ParentDashboard({
         const transaction =
           ordered[i];
 
-
         result.unshift({
           item:
             `Item ${i + 1}`,
@@ -364,7 +342,6 @@ export default function ParentDashboard({
 
           transaction,
         });
-
 
         if (
           transaction.type ===
@@ -389,13 +366,35 @@ export default function ParentDashboard({
 
       }
 
-
       return result;
 
     }, [
       transactions,
       student,
     ]);
+
+
+  /*
+    Download full statement
+  */
+
+  const handleDownloadStatement =
+    () => {
+
+      if (!student) {
+        alert(
+          "Student information unavailable"
+        );
+
+        return;
+      }
+
+      exportStudentBalancePDF(
+        student,
+        transactions
+      );
+
+    };
 
 
   /*
@@ -409,7 +408,6 @@ export default function ParentDashboard({
         window.confirm(
           "Are you sure you want to logout?"
         );
-
 
       if (confirmed) {
         setUser(null);
@@ -598,7 +596,6 @@ export default function ParentDashboard({
 
       <main className="parent-container">
 
-
         {/* ================= STUDENT ================= */}
 
         <section className="student-header">
@@ -745,6 +742,48 @@ export default function ParentDashboard({
             </div>
 
           </div>
+
+        </section>
+
+
+        {/* ================= DOWNLOAD STATEMENT ================= */}
+
+        <section className="statement-download-card">
+
+          <div className="statement-download-info">
+
+            <div className="statement-download-icon">
+              ↓
+            </div>
+
+            <div>
+
+              <span>
+                ACCOUNT STATEMENT
+              </span>
+
+              <h2>
+                Download Full Statement
+              </h2>
+
+              <p>
+                Download your complete account
+                statement as a PDF.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <button
+            className="statement-download-button"
+            onClick={
+              handleDownloadStatement
+            }
+          >
+            Download PDF
+          </button>
 
         </section>
 
@@ -934,8 +973,6 @@ export default function ParentDashboard({
         }
 
 
-        /* ================= TOPBAR ================= */
-
         .parent-topbar {
           height:
             78px;
@@ -1085,8 +1122,6 @@ export default function ParentDashboard({
         }
 
 
-        /* ================= LOGOUT ================= */
-
         .logout-btn {
           display:
             flex;
@@ -1163,8 +1198,6 @@ export default function ParentDashboard({
         }
 
 
-        /* ================= MAIN ================= */
-
         .parent-container {
           width:
             min(
@@ -1179,8 +1212,6 @@ export default function ParentDashboard({
             35px 0 50px;
         }
 
-
-        /* ================= STUDENT ================= */
 
         .student-header {
           display:
@@ -1324,8 +1355,6 @@ export default function ParentDashboard({
         }
 
 
-        /* ================= BALANCE ================= */
-
         .balance-box {
           min-width:
             260px;
@@ -1411,8 +1440,6 @@ export default function ParentDashboard({
             300;
         }
 
-
-        /* ================= SUMMARY ================= */
 
         .summary-grid {
           display:
@@ -1583,7 +1610,197 @@ export default function ParentDashboard({
         }
 
 
-        /* ================= COMMON CARDS ================= */
+        /* DOWNLOAD STATEMENT */
+
+        .statement-download-card {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            18px;
+
+          margin-bottom:
+            18px;
+
+          padding:
+            15px 17px;
+
+          background:
+            white;
+
+          border:
+            1px solid
+            #e2ece9;
+
+          border-radius:
+            15px;
+
+          box-shadow:
+            0 7px 22px
+            rgba(
+              6,
+              59,
+              70,
+              .04
+            );
+        }
+
+
+        .statement-download-info {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            11px;
+
+          min-width:
+            0;
+        }
+
+
+        .statement-download-icon {
+          width:
+            39px;
+
+          height:
+            39px;
+
+          flex-shrink:
+            0;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          border-radius:
+            11px;
+
+          background:
+            #e5f8f0;
+
+          color:
+            #07956d;
+
+          font-size:
+            20px;
+
+          font-weight:
+            700;
+        }
+
+
+        .statement-download-info span {
+          display:
+            block;
+
+          color:
+            #07956d;
+
+          font-size:
+            7px;
+
+          letter-spacing:
+            1.1px;
+
+          font-weight:
+            700;
+        }
+
+
+        .statement-download-info h2 {
+          margin:
+            3px 0 2px;
+
+          color:
+            #063b46;
+
+          font-size:
+            14px;
+
+          font-weight:
+            600;
+        }
+
+
+        .statement-download-info p {
+          margin:
+            0;
+
+          color:
+            #97a7a9;
+
+          font-size:
+            9px;
+        }
+
+
+        .statement-download-button {
+          flex-shrink:
+            0;
+
+          padding:
+            10px 15px;
+
+          border:
+            0;
+
+          border-radius:
+            10px;
+
+          background:
+            #07956d;
+
+          color:
+            white;
+
+          font-family:
+            inherit;
+
+          font-size:
+            10px;
+
+          font-weight:
+            700;
+
+          cursor:
+            pointer;
+
+          transition:
+            all .2s ease;
+        }
+
+
+        .statement-download-button:hover {
+          transform:
+            translateY(-2px);
+
+          background:
+            #063b46;
+
+          box-shadow:
+            0 7px 16px
+            rgba(
+              6,
+              59,
+              70,
+              .15
+            );
+        }
+
 
         .graph-card,
         .transactions-card {
@@ -1666,8 +1883,6 @@ export default function ParentDashboard({
             300;
         }
 
-
-        /* ================= GRAPH ================= */
 
         .graph-wrapper {
           width:
@@ -1830,8 +2045,6 @@ export default function ParentDashboard({
             1px;
         }
 
-
-        /* ================= TRANSACTIONS ================= */
 
         .transaction-total {
           width:
@@ -2118,8 +2331,6 @@ export default function ParentDashboard({
         }
 
 
-        /* ================= EMPTY ================= */
-
         .empty-message {
           min-height:
             150px;
@@ -2143,8 +2354,6 @@ export default function ParentDashboard({
             300;
         }
 
-
-        /* ================= FOOTER ================= */
 
         .parent-footer {
           padding:
@@ -2191,8 +2400,6 @@ export default function ParentDashboard({
         }
 
 
-        /* ================= TABLET ================= */
-
         @media (max-width: 850px) {
 
           .student-header {
@@ -2230,16 +2437,20 @@ export default function ParentDashboard({
         }
 
 
-        /* ================= MOBILE ================= */
-
         @media (max-width: 600px) {
 
           .parent-topbar {
             height:
-              70px;
+              64px;
 
             padding:
-              0 15px;
+              0 12px;
+          }
+
+
+          .brand-area {
+            gap:
+              8px;
           }
 
 
@@ -2251,42 +2462,72 @@ export default function ParentDashboard({
 
           .brand-logo {
             width:
-              38px;
+              35px;
 
             height:
-              38px;
+              35px;
+
+            border-radius:
+              10px;
+
+            font-size:
+              16px;
           }
 
 
           .brand-area h2 {
             font-size:
-              12px;
+              11px;
+
+            letter-spacing:
+              .6px;
           }
 
 
           .logout-btn {
             padding:
-              8px 12px;
+              7px 10px;
 
             font-size:
-              10px;
+              9px;
+
+            border-radius:
+              9px;
+          }
+
+
+          .logout-btn span {
+            font-size:
+              13px;
           }
 
 
           .parent-container {
             width:
               calc(
-                100% - 24px
+                100% - 20px
               );
 
-            padding-top:
-              25px;
+            padding:
+              20px 0 30px;
+          }
+
+
+          .student-header {
+            gap:
+              12px;
+
+            margin-bottom:
+              12px;
           }
 
 
           .student-heading h1 {
+            margin:
+              5px 0 10px;
+
             font-size:
-              27px;
+              25px;
           }
 
 
@@ -2296,18 +2537,57 @@ export default function ParentDashboard({
 
             grid-template-columns:
               1fr 1fr;
+
+            gap:
+              7px;
           }
 
 
           .detail-box {
             min-width:
               0;
+
+            padding:
+              8px 10px;
+
+            border-radius:
+              9px;
+          }
+
+
+          .detail-box strong {
+            font-size:
+              10px;
+          }
+
+
+          .balance-box {
+            padding:
+              15px 17px;
+
+            border-radius:
+              15px;
+          }
+
+
+          .balance-box strong {
+            margin:
+              4px 0 2px;
+
+            font-size:
+              27px;
           }
 
 
           .summary-grid {
             grid-template-columns:
               1fr;
+
+            gap:
+              7px;
+
+            margin-bottom:
+              12px;
           }
 
 
@@ -2317,25 +2597,148 @@ export default function ParentDashboard({
           }
 
 
+          .summary-card {
+            padding:
+              10px 12px;
+
+            border-radius:
+              12px;
+          }
+
+
+          .summary-icon {
+            width:
+              31px;
+
+            height:
+              31px;
+
+            border-radius:
+              9px;
+
+            font-size:
+              15px;
+          }
+
+
+          .summary-card strong {
+            font-size:
+              14px;
+          }
+
+
+          .statement-download-card {
+            align-items:
+              stretch;
+
+            flex-direction:
+              column;
+
+            gap:
+              10px;
+
+            padding:
+              12px;
+
+            margin-bottom:
+              12px;
+
+            border-radius:
+              13px;
+          }
+
+
+          .statement-download-info {
+            gap:
+              9px;
+          }
+
+
+          .statement-download-icon {
+            width:
+              34px;
+
+            height:
+              34px;
+
+            border-radius:
+              9px;
+
+            font-size:
+              17px;
+          }
+
+
+          .statement-download-info h2 {
+            font-size:
+              12px;
+          }
+
+
+          .statement-download-info p {
+            font-size:
+              8px;
+          }
+
+
+          .statement-download-button {
+            width:
+              100%;
+
+            padding:
+              10px;
+          }
+
+
           .graph-card,
           .transactions-card {
             padding:
+              12px;
+
+            border-radius:
+              14px;
+
+            margin-bottom:
+              12px;
+          }
+
+
+          .section-header {
+            margin-bottom:
+              10px;
+          }
+
+
+          .section-header h2 {
+            font-size:
               15px;
+          }
+
+
+          .section-header p {
+            font-size:
+              8px;
           }
 
 
           .balance-chart {
             height:
-              255px;
+              220px;
           }
 
 
           .transaction-card {
             min-height:
-              64px;
+              58px;
 
             padding:
-              9px;
+              8px;
+
+            gap:
+              7px;
+
+            border-radius:
+              10px;
           }
 
 
@@ -2345,9 +2748,60 @@ export default function ParentDashboard({
           }
 
 
+          .transaction-icon {
+            width:
+              29px;
+
+            height:
+              29px;
+
+            border-radius:
+              8px;
+
+            font-size:
+              13px;
+          }
+
+
           .transaction-middle strong {
             font-size:
+              9px;
+          }
+
+
+          .transaction-middle span {
+            font-size:
+              7px;
+          }
+
+
+          .transaction-amount {
+            font-size:
               10px;
+          }
+
+
+          .transaction-type {
+            font-size:
+              6px;
+          }
+
+
+          .transaction-total {
+            width:
+              26px;
+
+            height:
+              26px;
+          }
+
+
+          .parent-footer {
+            padding:
+              12px 0;
+
+            font-size:
+              7px;
           }
 
         }
@@ -2636,8 +3090,6 @@ function BalanceGraph({
         preserveAspectRatio="none"
       >
 
-        {/* Y title */}
-
         <text
           x="15"
           y={height / 2}
@@ -2649,8 +3101,6 @@ function BalanceGraph({
           TOTAL BALANCE
         </text>
 
-
-        {/* Grid */}
 
         {Array.from(
           {
@@ -2718,8 +3168,6 @@ function BalanceGraph({
         )}
 
 
-        {/* X axis */}
-
         <line
           x1={left}
           y1={
@@ -2738,8 +3186,6 @@ function BalanceGraph({
         />
 
 
-        {/* Y axis */}
-
         <line
           x1={left}
           y1={top}
@@ -2752,95 +3198,89 @@ function BalanceGraph({
         />
 
 
-        {/* Area */}
-
         <polygon
-          points={areaPoints}
+          points={
+            areaPoints
+          }
           className="chart-area"
         />
 
 
-        {/* Line */}
-
         <polyline
-          points={linePoints}
+          points={
+            linePoints
+          }
           className="chart-line"
         />
 
-
-        {/* Points */}
 
         {points.map(
           (
             point,
             index
-          ) => {
+          ) => (
 
-            const showLabel =
-              data.length <= 8 ||
-              index === 0 ||
-              index ===
-                data.length - 1;
+            <g
+              key={
+                `${point.item}-${index}`
+              }
+            >
 
-
-            return (
-              <g key={index}>
-
-                <circle
-                  cx={point.x}
-                  cy={point.y}
-                  r="5"
-                  className="chart-point"
-                />
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="5"
+                className="chart-point"
+              />
 
 
-                {showLabel && (
-                  <text
-                    x={point.x}
-                    y={
-                      point.y -
-                      13
-                    }
-                    textAnchor="middle"
-                    className="chart-value"
-                  >
-                    {formatAmount(
-                      point.balance
-                    )}
-                  </text>
+              <text
+                x={point.x}
+                y={
+                  point.y -
+                  10
+                }
+                textAnchor="middle"
+                className="chart-value"
+              >
+                {formatAmount(
+                  Math.round(
+                    point.balance
+                  )
                 )}
+              </text>
 
 
-                {showLabel && (
-                  <text
-                    x={point.x}
-                    y={
-                      height -
-                      31
-                    }
-                    textAnchor="middle"
-                    className="chart-label"
-                  >
-                    {point.item}
-                  </text>
-                )}
+              <text
+                x={point.x}
+                y={
+                  height -
+                  bottom +
+                  18
+                }
+                textAnchor="middle"
+                className="chart-label"
+              >
+                {point.item}
+              </text>
 
-              </g>
-            );
+            </g>
 
-          }
+          )
         )}
 
 
-        {/* X title */}
-
         <text
-          x={width / 2}
-          y={height - 7}
+          x={
+            width / 2
+          }
+          y={
+            height - 8
+          }
           textAnchor="middle"
           className="chart-x-title"
         >
-          TRANSACTION ITEM
+          TRANSACTIONS
         </text>
 
       </svg>
