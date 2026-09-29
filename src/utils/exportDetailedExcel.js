@@ -1,91 +1,62 @@
 import * as XLSX from "xlsx";
 
-function getTransactionDate(transaction) {
-  if (transaction.createdAt?.toDate) {
-    return transaction.createdAt.toDate();
+function getDate(payment) {
+  if (payment.createdAt?.toDate) {
+    return payment.createdAt.toDate();
   }
 
-  if (transaction.createdAt instanceof Date) {
-    return transaction.createdAt;
+  if (payment.createdAt instanceof Date) {
+    return payment.createdAt;
   }
 
-  if (transaction.date) {
-    const parsed = new Date(transaction.date);
+  if (payment.date) {
+    const d = new Date(payment.date);
 
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed;
+    if (!Number.isNaN(d.getTime())) {
+      return d;
     }
   }
 
   return null;
 }
 
-function formatDate(transaction) {
-  const date = getTransactionDate(transaction);
-
-  if (!date) {
-    return "";
-  }
-
-  return date.toLocaleDateString("en-GB");
+function getTime(payment) {
+  const d = getDate(payment);
+  return d ? d.getTime() : 0;
 }
 
-function getTimestamp(transaction) {
-  const date = getTransactionDate(transaction);
-
-  return date ? date.getTime() : 0;
+function getDateText(payment) {
+  const d = getDate(payment);
+  return d ? d.toLocaleDateString("en-GB") : "";
 }
 
-function safeSheetName(name, index) {
-  let sheetName = String(name || `Student ${index + 1}`)
-    .replace(/[\\/?*[\]:]/g, "")
+function safeSheetName(workbook, student, index) {
+  let base = String(student.name || `Student ${index + 1}`)
+    .replace(/[\\/?*\[\]:]/g, "")
     .trim();
 
-  if (!sheetName) {
-    sheetName = `Student ${index + 1}`;
+  if (!base) {
+    base = `Student ${index + 1}`;
   }
 
-  // Excel sheet names cannot exceed 31 characters
-  sheetName = sheetName.substring(0, 31);
+  base = base.slice(0, 31);
 
-  return sheetName;
+  let name = base;
+  let number = 2;
+
+  while (workbook.SheetNames.includes(name)) {
+    const suffix = ` (${number})`;
+    name = base.slice(0, 31 - suffix.length) + suffix;
+    number++;
+  }
+
+  return name;
 }
 
-function makeUniqueSheetName(workbook, name, index) {
-  const base = safeSheetName(name, index);
-
-  let finalName = base;
-  let counter = 2;
-
-  while (workbook.SheetNames.includes(finalName)) {
-    const suffix = ` (${counter})`;
-    finalName =
-      base.substring(0, 31 - suffix.length) + suffix;
-
-    counter++;
-  }
-
-  return finalName;
-}
-
-export function exportDetailedStudentExcel(
-  students,
-  payments
-) {
-  if (!students || students.length === 0) {
-    alert("No students available to export.");
-    return;
-  }
-
+function createClassWorkbook(className, students, payments) {
   const workbook = XLSX.utils.book_new();
 
-  /*
-   * ========================================================
-   * SUMMARY SHEET
-   * ========================================================
-   */
-
-  const summaryRows = [
+  const summary = [
     [
       "Student Name",
       "Admission No",
@@ -98,59 +69,48 @@ export function exportDetailedStudentExcel(
   ];
 
   students.forEach((student) => {
-    const studentPayments = payments
-      .filter(
-        (payment) =>
-          payment.studentId === student.id
-      )
-      .sort(
-        (a, b) =>
-          getTimestamp(a) - getTimestamp(b)
-      );
+    const transactions = payments
+      .filter((payment) => payment.studentId === student.id)
+      .sort((a, b) => getTime(a) - getTime(b));
 
-    const totalAdded = studentPayments
-      .filter(
-        (payment) =>
-          payment.type === "add"
-      )
+    const totalAdded = transactions
+      .filter((payment) => payment.type === "add")
       .reduce(
-        (sum, payment) =>
-          sum + Number(payment.amount || 0),
+        (total, payment) => total + Number(payment.amount || 0),
         0
       );
 
-    const totalDeducted = studentPayments
-      .filter(
-        (payment) =>
-          payment.type === "deduct"
-      )
+    const totalDeducted = transactions
+      .filter((payment) => payment.type === "deduct")
       .reduce(
-        (sum, payment) =>
-          sum + Number(payment.amount || 0),
+        (total, payment) => total + Number(payment.amount || 0),
         0
       );
 
-    summaryRows.push([
+    summary.push([
       student.name || "",
       student.adNo || "",
-      student.className || "",
+      student.className || className,
       totalAdded,
       totalDeducted,
       Number(student.balance || 0),
-      studentPayments.length,
+      transactions.length,
     ]);
   });
 
-  const summarySheet =
-    XLSX.utils.aoa_to_sheet(summaryRows);
+  // -----------------------------
+  // SUMMARY SHEET
+  // -----------------------------
+
+  const summarySheet = XLSX.utils.aoa_to_sheet(summary);
 
   summarySheet["!cols"] = [
-    { wch: 25 },
+    { wch: 28 },
     { wch: 18 },
     { wch: 12 },
-    { wch: 15 },
     { wch: 16 },
-    { wch: 17 },
+    { wch: 18 },
+    { wch: 18 },
     { wch: 15 },
   ];
 
@@ -160,98 +120,76 @@ export function exportDetailedStudentExcel(
     "Summary"
   );
 
-  /*
-   * ========================================================
-   * INDIVIDUAL STUDENT SHEETS
-   * ========================================================
-   */
+  // -----------------------------
+  // STUDENT SHEETS
+  // -----------------------------
 
-  students.forEach((student, studentIndex) => {
-    const studentPayments = payments
-      .filter(
-        (payment) =>
-          payment.studentId === student.id
-      )
-      .sort(
-        (a, b) =>
-          getTimestamp(a) - getTimestamp(b)
-      );
+  students.forEach((student, index) => {
+    const transactions = payments
+      .filter((payment) => payment.studentId === student.id)
+      .sort((a, b) => getTime(a) - getTime(b));
 
-    const currentBalance =
-      Number(student.balance || 0);
-
-    const totalAdded = studentPayments
-      .filter(
-        (payment) =>
-          payment.type === "add"
-      )
-      .reduce(
-        (sum, payment) =>
-          sum + Number(payment.amount || 0),
-        0
-      );
-
-    const totalDeducted = studentPayments
-      .filter(
-        (payment) =>
-          payment.type === "deduct"
-      )
-      .reduce(
-        (sum, payment) =>
-          sum + Number(payment.amount || 0),
-        0
-      );
+    const currentBalance = Number(student.balance || 0);
 
     /*
-     * Calculate running balance backwards
-     * from the student's current balance.
-     */
+      Reconstruct balance backwards from current balance.
+      This allows every transaction to show the balance after it.
+    */
     let runningBalance = currentBalance;
 
-    const transactionRows = [];
+    const transactionRows = [...transactions]
+      .reverse()
+      .map((payment) => {
+        const amount = Number(payment.amount || 0);
 
-    const newestFirst = [
-      ...studentPayments,
-    ].reverse();
+        const balanceAfter = runningBalance;
 
-    newestFirst.forEach((payment) => {
-      const amount =
-        Number(payment.amount || 0);
+        let added = "";
+        let deducted = "";
 
-      const balanceAfter =
-        runningBalance;
+        if (payment.type === "add") {
+          added = amount;
+          runningBalance -= amount;
+        } else if (payment.type === "deduct") {
+          deducted = amount;
+          runningBalance += amount;
+        }
 
-      let added = "";
-      let deducted = "";
+        return [
+          getDateText(payment),
+          payment.reason || "",
+          added,
+          deducted,
+          balanceAfter,
+        ];
+      })
+      .reverse();
 
-      if (payment.type === "add") {
-        added = amount;
-        runningBalance -= amount;
-      } else {
-        deducted = amount;
-        runningBalance += amount;
-      }
+    const totalAdded = transactions
+      .filter((payment) => payment.type === "add")
+      .reduce(
+        (total, payment) => total + Number(payment.amount || 0),
+        0
+      );
 
-      transactionRows.unshift([
-        formatDate(payment),
-        payment.reason || "",
-        added,
-        deducted,
-        balanceAfter,
-      ]);
-    });
+    const totalDeducted = transactions
+      .filter((payment) => payment.type === "deduct")
+      .reduce(
+        (total, payment) => total + Number(payment.amount || 0),
+        0
+      );
 
-    const rows = [
+    const data = [
       ["FIDHA ACCOUNTS - STUDENT STATEMENT"],
       [],
       ["Student Name", student.name || ""],
       ["Admission No", student.adNo || ""],
-      ["Class", student.className || ""],
+      ["Class", student.className || className],
       ["Current Balance", currentBalance],
       [],
       ["Total Added", totalAdded],
       ["Total Deducted", totalDeducted],
-      ["Transactions", studentPayments.length],
+      ["Transactions", transactions.length],
       [],
       [
         "Date",
@@ -263,55 +201,84 @@ export function exportDetailedStudentExcel(
       ...transactionRows,
     ];
 
-    const sheet =
-      XLSX.utils.aoa_to_sheet(rows);
+    const sheet = XLSX.utils.aoa_to_sheet(data);
 
-    /*
-     * Column widths
-     */
     sheet["!cols"] = [
       { wch: 15 },
-      { wch: 35 },
-      { wch: 15 },
+      { wch: 40 },
       { wch: 16 },
       { wch: 18 },
+      { wch: 18 },
     ];
-
-    /*
-     * Freeze transaction header
-     */
-    sheet["!freeze"] = {
-      xSplit: 0,
-      ySplit: 12,
-    };
-
-    const sheetName =
-      makeUniqueSheetName(
-        workbook,
-        student.name,
-        studentIndex
-      );
 
     XLSX.utils.book_append_sheet(
       workbook,
       sheet,
-      sheetName
+      safeSheetName(workbook, student, index)
     );
   });
 
-  /*
-   * ========================================================
-   * DOWNLOAD
-   * ========================================================
-   */
+  return workbook;
+}
 
-  const today =
-    new Date()
-      .toISOString()
-      .split("T")[0];
+export function exportDetailedStudentExcelByClass(
+  students,
+  payments
+) {
+  if (!students?.length) {
+    alert("No students available to export.");
+    return;
+  }
 
-  XLSX.writeFile(
-    workbook,
-    `Fidha_Detailed_Accounts_${today}.xlsx`
+  // Find all classes
+  const classes = [
+    ...new Set(
+      students
+        .map((student) => student.className)
+        .filter(Boolean)
+    ),
+  ].sort();
+
+  if (!classes.length) {
+    alert("No classes found.");
+    return;
+  }
+
+  const today = new Date()
+    .toISOString()
+    .split("T")[0];
+
+  // Create ONE Excel file for EACH class
+  classes.forEach((className) => {
+    const classStudents = students.filter(
+      (student) =>
+        String(student.className || "").toLowerCase() ===
+        String(className).toLowerCase()
+    );
+
+    if (!classStudents.length) {
+      return;
+    }
+
+    const workbook = createClassWorkbook(
+      className,
+      classStudents,
+      payments
+    );
+
+    const safeClassName = String(className)
+      .replace(/[\\/?*\[\]:]/g, "")
+      .trim();
+
+    XLSX.writeFile(
+      workbook,
+      `Fidha_Detailed_${safeClassName}_${today}.xlsx`
+    );
+  });
+
+  alert(
+    `${classes.length} detailed Excel file${
+      classes.length > 1 ? "s" : ""
+    } created successfully.`
   );
 }

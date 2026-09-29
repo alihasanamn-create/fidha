@@ -19,10 +19,7 @@ import {
   exportStudentTransactionsCSV,
 } from "./utils/exportPDF";
 
-import {
-  exportDetailedStudentExcel,
-} from "./utils/exportDetailedExcel";
-
+import { exportDetailedStudentExcelByClass } from "./utils/exportDetailedExcel";
 
 export default function AdminDashboard({
   classFilter = "",
@@ -557,7 +554,7 @@ export default function AdminDashboard({
   ========================================================= */
 
   const downloadDetailedExcel = () => {
-    exportDetailedStudentExcel(
+    exportDetailedStudentExcelByClass(
       students,
       payments
     );
