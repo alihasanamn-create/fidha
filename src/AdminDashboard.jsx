@@ -19,6 +19,10 @@ import {
   exportStudentTransactionsCSV,
 } from "./utils/exportPDF";
 
+import {
+  exportDetailedStudentExcel,
+} from "./utils/exportDetailedExcel";
+
 
 export default function AdminDashboard({
   classFilter = "",
@@ -49,6 +53,9 @@ export default function AdminDashboard({
         }));
 
         setStudents(data);
+      },
+      (error) => {
+        console.error("Student loading error:", error);
       }
     );
 
@@ -91,10 +98,7 @@ export default function AdminDashboard({
 
   const handleAdd = async () => {
     if (!name.trim() || !adNo.trim()) {
-      alert(
-        "Name and Admission No are required"
-      );
-
+      alert("Name and Admission No are required");
       return;
     }
 
@@ -121,9 +125,7 @@ export default function AdminDashboard({
     } catch (error) {
       console.error(error);
 
-      alert(
-        "Failed to add student"
-      );
+      alert("Failed to add student");
     }
   };
 
@@ -143,12 +145,18 @@ export default function AdminDashboard({
       await deleteDoc(
         doc(db, "students", id)
       );
+
+      // Remove the student's local payments from the UI.
+      setPayments((previous) =>
+        previous.filter(
+          (payment) =>
+            payment.studentId !== id
+        )
+      );
     } catch (error) {
       console.error(error);
 
-      alert(
-        "Failed to delete student"
-      );
+      alert("Failed to delete student");
     }
   };
 
@@ -224,47 +232,37 @@ export default function AdminDashboard({
         }
       );
 
-      await addDoc(
-        collection(db, "payments"),
-        {
-          studentId:
-            student.id,
+      const transaction = {
+        studentId:
+          student.id,
 
-          studentName:
-            student.name,
+        studentName:
+          student.name,
 
-          amount,
+        amount,
 
-          reason,
+        reason,
 
-          type,
+        type,
 
-          createdAt:
-            new Date(),
-        }
-      );
+        createdAt:
+          new Date(),
+      };
+
+      const paymentRef =
+        await addDoc(
+          collection(db, "payments"),
+          transaction
+        );
 
       setPayments((previous) => [
         ...previous,
 
         {
           id:
-            `local-${Date.now()}`,
+            paymentRef.id,
 
-          studentId:
-            student.id,
-
-          studentName:
-            student.name,
-
-          amount,
-
-          reason,
-
-          type,
-
-          createdAt:
-            new Date(),
+          ...transaction,
         },
       ]);
 
@@ -276,9 +274,7 @@ export default function AdminDashboard({
     } catch (error) {
       console.error(error);
 
-      alert(
-        "Transaction failed"
-      );
+      alert("Transaction failed");
     }
   };
 
@@ -557,6 +553,18 @@ export default function AdminDashboard({
 
 
   /* =========================================================
+     DETAILED EXCEL
+  ========================================================= */
+
+  const downloadDetailedExcel = () => {
+    exportDetailedStudentExcel(
+      students,
+      payments
+    );
+  };
+
+
+  /* =========================================================
      DOWNLOAD MODE
   ========================================================= */
 
@@ -577,6 +585,9 @@ export default function AdminDashboard({
         downloadClassCSV={
           downloadClassCSV
         }
+        downloadDetailedExcel={
+          downloadDetailedExcel
+        }
       />
     );
   }
@@ -595,9 +606,7 @@ export default function AdminDashboard({
   return (
     <div className="admin-dashboard">
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+      {/* HEADER */}
 
       <header className="dashboard-heading">
 
@@ -648,9 +657,7 @@ export default function AdminDashboard({
       </header>
 
 
-      {/* =====================================================
-          ADD STUDENT
-      ===================================================== */}
+      {/* ADD STUDENT */}
 
       {!classFilter && (
         <section className="add-student-card">
@@ -694,15 +701,34 @@ export default function AdminDashboard({
             />
 
 
-            <input
-              placeholder="Class"
+            <select
               value={className}
               onChange={(e) =>
                 setClassName(
                   e.target.value
                 )
               }
-            />
+            >
+              <option value="">
+                Select Class
+              </option>
+
+              <option value="S1">
+                S1
+              </option>
+
+              <option value="S2">
+                S2
+              </option>
+
+              <option value="S3">
+                S3
+              </option>
+
+              <option value="S4">
+                S4
+              </option>
+            </select>
 
 
             <input
@@ -730,9 +756,7 @@ export default function AdminDashboard({
       )}
 
 
-      {/* =====================================================
-          SEARCH
-      ===================================================== */}
+      {/* SEARCH */}
 
       <section className="tools-row">
 
@@ -778,9 +802,7 @@ export default function AdminDashboard({
       </section>
 
 
-      {/* =====================================================
-          STUDENTS
-      ===================================================== */}
+      {/* STUDENTS */}
 
       <section className="students-section">
 
@@ -994,1194 +1016,588 @@ export default function AdminDashboard({
             )}
 
           </div>
-
         )}
 
       </section>
 
 
       {/* =====================================================
-          ADMIN DASHBOARD STYLES
+          DASHBOARD STYLES
       ===================================================== */}
 
       <style>{`
 
         .admin-dashboard {
-          max-width:
-            1250px;
-
-          margin:
-            0 auto;
-
-          width:
-            100%;
+          max-width: 1250px;
+          margin: 0 auto;
+          width: 100%;
         }
-
 
         .dashboard-heading {
-          display:
-            flex;
-
-          justify-content:
-            space-between;
-
-          gap:
-            20px;
-
-          margin-bottom:
-            25px;
+          display: flex;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 25px;
         }
-
 
         .dashboard-heading
         > div:first-child
         > span,
         .section-heading span {
-          color:
-            #07956d;
-
-          font-size:
-            9px;
-
-          letter-spacing:
-            1.5px;
-
-          font-weight:
-            800;
+          color: #07956d;
+          font-size: 9px;
+          letter-spacing: 1.5px;
+          font-weight: 800;
         }
-
 
         .dashboard-heading h1 {
-          margin:
-            6px 0;
-
-          color:
-            #063b46;
-
-          font-size:
-            32px;
-
-          line-height:
-            1.15;
+          margin: 6px 0;
+          color: #063b46;
+          font-size: 32px;
+          line-height: 1.15;
         }
-
 
         .dashboard-heading p {
-          margin:
-            0;
-
-          color:
-            #8a9a9d;
-
-          font-size:
-            13px;
+          margin: 0;
+          color: #8a9a9d;
+          font-size: 13px;
         }
-
 
         .dashboard-stats {
-          display:
-            flex;
-
-          gap:
-            10px;
+          display: flex;
+          gap: 10px;
         }
-
 
         .dashboard-stats > div {
-          min-width:
-            115px;
-
-          padding:
-            13px;
-
-          border:
-            1px solid #e2ece9;
-
-          border-radius:
-            14px;
-
-          background:
-            white;
+          min-width: 115px;
+          padding: 13px;
+          border: 1px solid #e2ece9;
+          border-radius: 14px;
+          background: white;
         }
-
 
         .dashboard-stats small {
-          display:
-            block;
-
-          color:
-            #94a4a7;
-
-          font-size:
-            8px;
-
-          letter-spacing:
-            1px;
+          display: block;
+          color: #94a4a7;
+          font-size: 8px;
+          letter-spacing: 1px;
         }
-
 
         .dashboard-stats strong {
-          display:
-            block;
-
-          margin-top:
-            5px;
-
-          color:
-            #063b46;
-
-          font-size:
-            18px;
+          display: block;
+          margin-top: 5px;
+          color: #063b46;
+          font-size: 18px;
         }
-
 
         .add-student-card,
         .students-section {
-          background:
-            white;
-
-          border:
-            1px solid #e4eeeb;
-
-          border-radius:
-            20px;
-
-          padding:
-            22px;
-
-          margin-bottom:
-            18px;
-
+          background: white;
+          border: 1px solid #e4eeeb;
+          border-radius: 20px;
+          padding: 22px;
+          margin-bottom: 18px;
           box-shadow:
-            0 10px 30px
-            rgba(
-              6,
-              59,
-              70,
-              .04
-            );
+            0 10px 30px rgba(6, 59, 70, .04);
         }
-
 
         .section-heading {
-          display:
-            flex;
-
-          justify-content:
-            space-between;
-
-          align-items:
-            center;
-
-          margin-bottom:
-            17px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 17px;
         }
-
 
         .section-heading h2 {
-          margin:
-            5px 0 0;
-
-          color:
-            #063b46;
-
-          font-size:
-            18px;
+          margin: 5px 0 0;
+          color: #063b46;
+          font-size: 18px;
         }
-
 
         .student-form {
-          display:
-            grid;
-
+          display: grid;
           grid-template-columns:
             1.4fr 1fr 1fr .8fr auto;
-
-          gap:
-            9px;
+          gap: 9px;
         }
-
 
         .student-form input,
+        .student-form select,
         .transaction-form input,
         .transaction-form select {
-          width:
-            100%;
-
-          min-width:
-            0;
-
-          box-sizing:
-            border-box;
-
-          border:
-            1px solid #dfeae7;
-
-          border-radius:
-            10px;
-
-          padding:
-            11px 12px;
-
-          outline:
-            none;
-
-          font-size:
-            12px;
-
-          background:
-            #fbfdfc;
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+          border: 1px solid #dfeae7;
+          border-radius: 10px;
+          padding: 11px 12px;
+          outline: none;
+          font-size: 12px;
+          background: #fbfdfc;
         }
-
 
         .student-form input:focus,
+        .student-form select:focus,
         .transaction-form input:focus,
         .transaction-form select:focus {
-          border-color:
-            #07956d;
-
+          border-color: #07956d;
           box-shadow:
-            0 0 0 3px
-            rgba(
-              7,
-              149,
-              109,
-              .07
-            );
+            0 0 0 3px rgba(7, 149, 109, .07);
         }
-
 
         .primary-button,
         .update-button,
         .download-student-button,
         .csv-button {
-          border:
-            0;
-
-          border-radius:
-            10px;
-
-          cursor:
-            pointer;
-
-          font-size:
-            11px;
-
-          font-weight:
-            700;
-
+          border: 0;
+          border-radius: 10px;
+          cursor: pointer;
+          font-size: 11px;
+          font-weight: 700;
           transition:
             transform .2s ease,
             box-shadow .2s ease,
             background .2s ease;
         }
 
-
         .primary-button {
-          background:
-            #063b46;
-
-          color:
-            white;
-
-          padding:
-            0 17px;
+          background: #063b46;
+          color: white;
+          padding: 0 17px;
         }
-
 
         .primary-button:hover,
         .update-button:hover {
-          transform:
-            translateY(-2px);
-
-          background:
-            #07956d;
-
+          transform: translateY(-2px);
+          background: #07956d;
           box-shadow:
-            0 7px 16px
-            rgba(
-              7,
-              149,
-              109,
-              .18
-            );
+            0 7px 16px rgba(7, 149, 109, .18);
         }
-
 
         .tools-row {
-          display:
-            flex;
-
-          gap:
-            10px;
-
-          margin-bottom:
-            18px;
+          display: flex;
+          gap: 10px;
+          margin-bottom: 18px;
         }
-
 
         .search-box {
-          flex:
-            1;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            8px;
-
-          background:
-            white;
-
-          border:
-            1px solid #e4eeeb;
-
-          border-radius:
-            13px;
-
-          padding:
-            0 13px;
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: white;
+          border: 1px solid #e4eeeb;
+          border-radius: 13px;
+          padding: 0 13px;
         }
-
 
         .search-box span {
-          color:
-            #07956d;
-
-          font-size:
-            20px;
+          color: #07956d;
+          font-size: 20px;
         }
-
 
         .search-box input {
-          flex:
-            1;
-
-          min-width:
-            0;
-
-          border:
-            0;
-
-          outline:
-            0;
-
-          padding:
-            13px 0;
-
-          font-size:
-            12px;
+          flex: 1;
+          min-width: 0;
+          border: 0;
+          outline: 0;
+          padding: 13px 0;
+          font-size: 12px;
         }
-
 
         .csv-button {
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          padding:
-            0 18px;
-
-          background:
-            white;
-
-          color:
-            #063b46;
-
-          border:
-            1px solid #dfeae7;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 18px;
+          background: white;
+          color: #063b46;
+          border: 1px solid #dfeae7;
         }
-
 
         .csv-button:hover {
-          transform:
-            translateY(-2px);
-
-          background:
-            #063b46;
-
-          color:
-            white;
+          transform: translateY(-2px);
+          background: #063b46;
+          color: white;
         }
-
 
         .csv-button input {
-          display:
-            none;
+          display: none;
         }
-
 
         .student-count {
-          width:
-            30px;
-
-          height:
-            30px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          border-radius:
-            9px;
-
-          background:
-            #edf7f4;
-
-          color:
-            #07956d;
-
-          font-size:
-            11px;
+          width: 30px;
+          height: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 9px;
+          background: #edf7f4;
+          color: #07956d;
+          font-size: 11px;
         }
-
-
-        /* =====================================================
-           STUDENT GRID
-        ===================================================== */
 
         .students-grid {
-          display:
-            grid;
-
+          display: grid;
           grid-template-columns:
-            repeat(
-              2,
-              minmax(
-                0,
-                1fr
-              )
-            );
-
-          gap:
-            13px;
+            repeat(2, minmax(0, 1fr));
+          gap: 13px;
         }
 
-
         .student-card {
-          min-width:
-            0;
-
-          padding:
-            16px;
-
-          border:
-            1px solid #e7efed;
-
-          border-radius:
-            17px;
-
-          background:
-            #fcfefd;
-
+          min-width: 0;
+          padding: 16px;
+          border: 1px solid #e7efed;
+          border-radius: 17px;
+          background: #fcfefd;
           transition:
             transform .2s ease,
             box-shadow .2s ease;
         }
 
-
         .student-card:hover {
-          transform:
-            translateY(-3px);
-
+          transform: translateY(-3px);
           box-shadow:
-            0 12px 25px
-            rgba(
-              6,
-              59,
-              70,
-              .07
-            );
+            0 12px 25px rgba(6, 59, 70, .07);
         }
-
 
         .student-top {
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            10px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
-
 
         .student-avatar {
-          width:
-            40px;
-
-          height:
-            40px;
-
-          flex-shrink:
-            0;
-
-          border-radius:
-            12px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          background:
-            #e3f6f0;
-
-          color:
-            #07956d;
-
-          font-weight:
-            800;
+          width: 40px;
+          height: 40px;
+          flex-shrink: 0;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #e3f6f0;
+          color: #07956d;
+          font-weight: 800;
         }
-
 
         .student-info {
-          min-width:
-            0;
-
-          flex:
-            1;
+          min-width: 0;
+          flex: 1;
         }
-
 
         .student-info h3 {
-          margin:
-            0;
-
-          color:
-            #063b46;
-
-          font-size:
-            14px;
-
-          white-space:
-            nowrap;
-
-          overflow:
-            hidden;
-
-          text-overflow:
-            ellipsis;
+          margin: 0;
+          color: #063b46;
+          font-size: 14px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
-
 
         .student-info p {
-          margin:
-            3px 0 0;
-
-          color:
-            #91a0a3;
-
-          font-size:
-            9px;
-
-          white-space:
-            nowrap;
-
-          overflow:
-            hidden;
-
-          text-overflow:
-            ellipsis;
+          margin: 3px 0 0;
+          color: #91a0a3;
+          font-size: 9px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
-
 
         .delete-button {
-          width:
-            28px;
-
-          height:
-            28px;
-
-          flex-shrink:
-            0;
-
-          border:
-            0;
-
-          border-radius:
-            8px;
-
-          background:
-            #fff0ee;
-
-          color:
-            #d95f55;
-
-          cursor:
-            pointer;
-
-          font-size:
-            17px;
+          width: 28px;
+          height: 28px;
+          flex-shrink: 0;
+          border: 0;
+          border-radius: 8px;
+          background: #fff0ee;
+          color: #d95f55;
+          cursor: pointer;
+          font-size: 17px;
         }
-
 
         .student-balance {
-          margin:
-            14px 0;
-
-          padding:
-            13px;
-
-          border-radius:
-            12px;
-
-          background:
-            #f1f8f5;
+          margin: 14px 0;
+          padding: 13px;
+          border-radius: 12px;
+          background: #f1f8f5;
         }
-
 
         .student-balance small {
-          display:
-            block;
-
-          color:
-            #91a0a3;
-
-          font-size:
-            8px;
-
-          letter-spacing:
-            1px;
+          display: block;
+          color: #91a0a3;
+          font-size: 8px;
+          letter-spacing: 1px;
         }
-
 
         .student-balance strong {
-          display:
-            block;
-
-          margin-top:
-            4px;
-
-          color:
-            #063b46;
-
-          font-size:
-            22px;
+          display: block;
+          margin-top: 4px;
+          color: #063b46;
+          font-size: 22px;
         }
-
-
-        /* =====================================================
-           TRANSACTION FORM
-        ===================================================== */
 
         .transaction-form {
-          display:
-            grid;
-
-          grid-template-columns:
-            .75fr 1.45fr .75fr;
-
-          gap:
-            7px;
+          display: grid;
+          grid-template-columns: .75fr 1.45fr .75fr;
+          gap: 7px;
         }
-
 
         .transaction-title {
-          grid-column:
-            1 / -1;
-
-          color:
-            #61777b;
-
-          font-size:
-            10px;
-
-          font-weight:
-            700;
+          grid-column: 1 / -1;
+          color: #61777b;
+          font-size: 10px;
+          font-weight: 700;
         }
-
 
         .update-button {
-          background:
-            #07956d;
-
-          color:
-            white;
-
-          padding:
-            10px;
+          background: #07956d;
+          color: white;
+          padding: 10px;
         }
-
 
         .download-student-button {
-          grid-column:
-            1 / -1;
-
-          padding:
-            9px;
-
-          background:
-            white;
-
-          color:
-            #063b46;
-
-          border:
-            1px solid #dce9e5;
+          grid-column: 1 / -1;
+          padding: 9px;
+          background: white;
+          color: #063b46;
+          border: 1px solid #dce9e5;
         }
-
 
         .download-student-button:hover {
-          transform:
-            translateY(-2px);
-
-          background:
-            #edf7f4;
-
-          border-color:
-            #07956d;
+          transform: translateY(-2px);
+          background: #edf7f4;
+          border-color: #07956d;
         }
-
 
         .empty-students {
-          padding:
-            50px;
-
-          text-align:
-            center;
-
-          color:
-            #95a4a7;
-
-          font-size:
-            12px;
+          padding: 50px;
+          text-align: center;
+          color: #95a4a7;
+          font-size: 12px;
         }
-
-
-        /* =====================================================
-           TABLET
-        ===================================================== */
 
         @media (max-width: 1000px) {
-
           .student-form {
-            grid-template-columns:
-              1fr 1fr;
+            grid-template-columns: 1fr 1fr;
           }
-
 
           .primary-button {
-            padding:
-              11px;
+            padding: 11px;
           }
-
         }
-
 
         @media (max-width: 750px) {
-
           .dashboard-heading {
-            flex-direction:
-              column;
+            flex-direction: column;
           }
-
 
           .students-grid {
-            grid-template-columns:
-              1fr;
+            grid-template-columns: 1fr;
           }
-
         }
-
-
-        /* =====================================================
-           MOBILE
-        ===================================================== */
 
         @media (max-width: 550px) {
-
           .admin-dashboard {
-            width:
-              100%;
-
-            overflow:
-              hidden;
+            width: 100%;
+            overflow: hidden;
           }
-
 
           .dashboard-heading {
-            gap:
-              12px;
-
-            margin-bottom:
-              14px;
+            gap: 12px;
+            margin-bottom: 14px;
           }
-
 
           .dashboard-heading h1 {
-            font-size:
-              24px;
+            font-size: 24px;
           }
-
 
           .dashboard-heading p {
-            font-size:
-              11px;
+            font-size: 11px;
           }
-
 
           .dashboard-stats {
-            width:
-              100%;
-
-            gap:
-              7px;
+            width: 100%;
+            gap: 7px;
           }
-
 
           .dashboard-stats > div {
-            flex:
-              1;
-
-            min-width:
-              0;
-
-            padding:
-              10px;
-
-            border-radius:
-              11px;
+            flex: 1;
+            min-width: 0;
+            padding: 10px;
+            border-radius: 11px;
           }
-
 
           .dashboard-stats strong {
-            font-size:
-              15px;
+            font-size: 15px;
           }
-
 
           .add-student-card,
           .students-section {
-            padding:
-              14px;
-
-            margin-bottom:
-              12px;
-
-            border-radius:
-              15px;
+            padding: 14px;
+            margin-bottom: 12px;
+            border-radius: 15px;
           }
-
 
           .section-heading {
-            margin-bottom:
-              12px;
+            margin-bottom: 12px;
           }
-
 
           .section-heading h2 {
-            font-size:
-              16px;
+            font-size: 16px;
           }
-
 
           .student-form {
-            grid-template-columns:
-              1fr;
-
-            gap:
-              7px;
+            grid-template-columns: 1fr;
+            gap: 7px;
           }
 
-
-          .student-form input {
-            height:
-              42px;
-
-            padding:
-              9px 11px;
+          .student-form input,
+          .student-form select {
+            height: 42px;
+            padding: 9px 11px;
           }
-
 
           .primary-button {
-            height:
-              42px;
-
-            padding:
-              0 12px;
+            height: 42px;
+            padding: 0 12px;
           }
-
 
           .tools-row {
-            flex-direction:
-              column;
-
-            gap:
-              7px;
-
-            margin-bottom:
-              12px;
+            flex-direction: column;
+            gap: 7px;
+            margin-bottom: 12px;
           }
-
 
           .search-box {
-            min-height:
-              42px;
+            min-height: 42px;
           }
-
 
           .search-box input {
-            font-size:
-              11px;
-
-            padding:
-              10px 0;
+            font-size: 11px;
+            padding: 10px 0;
           }
-
 
           .csv-button {
-            min-height:
-              40px;
-
-            justify-content:
-              center;
+            min-height: 40px;
           }
-
 
           .student-count {
-            width:
-              27px;
-
-            height:
-              27px;
+            width: 27px;
+            height: 27px;
           }
-
-
-          /* COMPACT STUDENT CARD */
 
           .students-grid {
-            gap:
-              8px;
+            gap: 8px;
           }
-
 
           .student-card {
-            padding:
-              11px;
-
-            border-radius:
-              13px;
+            padding: 11px;
+            border-radius: 13px;
           }
-
 
           .student-card:hover {
-            transform:
-              none;
+            transform: none;
           }
-
 
           .student-top {
-            gap:
-              8px;
+            gap: 8px;
           }
-
 
           .student-avatar {
-            width:
-              34px;
-
-            height:
-              34px;
-
-            border-radius:
-              10px;
-
-            font-size:
-              13px;
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            font-size: 13px;
           }
-
 
           .student-info h3 {
-            font-size:
-              12px;
+            font-size: 12px;
           }
-
 
           .student-info p {
-            margin-top:
-              2px;
-
-            font-size:
-              8px;
+            margin-top: 2px;
+            font-size: 8px;
           }
-
 
           .delete-button {
-            width:
-              25px;
-
-            height:
-              25px;
-
-            font-size:
-              15px;
+            width: 25px;
+            height: 25px;
+            font-size: 15px;
           }
-
 
           .student-balance {
-            margin:
-              9px 0;
-
-            padding:
-              9px;
-
-            border-radius:
-              10px;
+            margin: 9px 0;
+            padding: 9px;
+            border-radius: 10px;
           }
-
 
           .student-balance small {
-            font-size:
-              7px;
+            font-size: 7px;
           }
-
 
           .student-balance strong {
-            margin-top:
-              2px;
-
-            font-size:
-              18px;
+            margin-top: 2px;
+            font-size: 18px;
           }
-
-
-          /* COMPACT TRANSACTION AREA */
 
           .transaction-form {
-            grid-template-columns:
-              1fr 1.35fr;
-
-            gap:
-              6px;
+            grid-template-columns: 1fr 1.35fr;
+            gap: 6px;
           }
-
 
           .transaction-title {
-            grid-column:
-              1 / -1;
-
-            font-size:
-              9px;
+            grid-column: 1 / -1;
+            font-size: 9px;
           }
-
 
           .transaction-form input,
           .transaction-form select {
-            height:
-              38px;
-
-            padding:
-              8px;
-
-            border-radius:
-              8px;
-
-            font-size:
-              10px;
+            height: 38px;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 10px;
           }
-
-
-          .transaction-form .reason-input {
-            grid-column:
-              auto;
-          }
-
-
-          .transaction-form select {
-            grid-column:
-              auto;
-          }
-
 
           .update-button {
-            height:
-              38px;
-
-            padding:
-              7px;
-
-            font-size:
-              9px;
+            height: 38px;
+            padding: 7px;
+            font-size: 9px;
           }
-
 
           .download-student-button {
-            grid-column:
-              1 / -1;
-
-            height:
-              36px;
-
-            padding:
-              7px;
-
-            font-size:
-              9px;
+            grid-column: 1 / -1;
+            height: 36px;
+            padding: 7px;
+            font-size: 9px;
           }
-
 
           .empty-students {
-            padding:
-              35px 15px;
+            padding: 35px 15px;
           }
-
         }
 
-
-        /* VERY SMALL PHONES */
-
         @media (max-width: 360px) {
-
           .add-student-card,
           .students-section {
-            padding:
-              11px;
+            padding: 11px;
           }
-
 
           .student-card {
-            padding:
-              9px;
+            padding: 9px;
           }
-
 
           .student-balance strong {
-            font-size:
-              17px;
+            font-size: 17px;
           }
-
 
           .transaction-form {
-            gap:
-              5px;
+            gap: 5px;
           }
-
 
           .transaction-form input,
           .transaction-form select {
-            font-size:
-              9px;
+            font-size: 9px;
           }
-
         }
 
       `}</style>
@@ -2202,6 +1618,7 @@ function DownloadSection({
   downloadStudentCSV,
   downloadClassPDF,
   downloadClassCSV,
+  downloadDetailedExcel,
 }) {
   const [search, setSearch] =
     useState("");
@@ -2247,9 +1664,7 @@ function DownloadSection({
   return (
     <div className="download-page">
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+      {/* HEADER */}
 
       <div className="download-heading">
 
@@ -2262,17 +1677,14 @@ function DownloadSection({
         </h1>
 
         <p>
-          Download individual student
-          records or complete class
-          balance sheets.
+          Download class, student and
+          detailed account reports.
         </p>
 
       </div>
 
 
-      {/* =====================================================
-          CLASS REPORTS
-      ===================================================== */}
+      {/* CLASS REPORTS */}
 
       <section className="download-panel">
 
@@ -2414,9 +1826,49 @@ function DownloadSection({
       </section>
 
 
-      {/* =====================================================
-          INDIVIDUAL REPORTS
-      ===================================================== */}
+      {/* DETAILED EXCEL */}
+
+      <section className="download-panel detailed-excel-panel">
+
+        <div className="detailed-excel-content">
+
+          <div className="detailed-excel-icon">
+            📊
+          </div>
+
+          <div className="detailed-excel-info">
+
+            <span>
+              COMPLETE ACCOUNT REPORT
+            </span>
+
+            <h2>
+              Detailed Excel
+            </h2>
+
+            <p>
+              Every student, transaction,
+              reason, added, deducted and
+              balance in separate student tabs.
+            </p>
+
+          </div>
+
+          <button
+            className="detailed-excel-button"
+            onClick={
+              downloadDetailedExcel
+            }
+          >
+            ↓ Excel
+          </button>
+
+        </div>
+
+      </section>
+
+
+      {/* INDIVIDUAL REPORTS */}
 
       <section className="download-panel">
 
@@ -2575,724 +2027,456 @@ function DownloadSection({
       </section>
 
 
-      {/* =====================================================
-          DOWNLOAD PAGE STYLES
-      ===================================================== */}
+      {/* DOWNLOAD PAGE STYLES */}
 
       <style>{`
 
         .download-page {
-          max-width:
-            1200px;
-
-          margin:
-            0 auto;
-
-          width:
-            100%;
+          max-width: 1200px;
+          margin: 0 auto;
+          width: 100%;
         }
-
 
         .download-heading {
-          margin-bottom:
-            25px;
+          margin-bottom: 20px;
         }
-
 
         .download-heading > span,
-        .download-panel-heading span {
-          color:
-            #07956d;
-
-          font-size:
-            9px;
-
-          font-weight:
-            800;
-
-          letter-spacing:
-            1.6px;
+        .download-panel-heading span,
+        .detailed-excel-info > span {
+          color: #07956d;
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 1.6px;
         }
-
 
         .download-heading h1 {
-          margin:
-            6px 0;
-
-          color:
-            #063b46;
-
-          font-size:
-            32px;
+          margin: 6px 0;
+          color: #063b46;
+          font-size: 32px;
         }
-
 
         .download-heading p {
-          margin:
-            0;
-
-          color:
-            #8b9b9e;
-
-          font-size:
-            13px;
+          margin: 0;
+          color: #8b9b9e;
+          font-size: 13px;
         }
-
 
         .download-panel {
-          padding:
-            22px;
-
-          margin-bottom:
-            18px;
-
-          background:
-            white;
-
-          border:
-            1px solid #e4eeeb;
-
-          border-radius:
-            20px;
-
+          padding: 18px;
+          margin-bottom: 14px;
+          background: white;
+          border: 1px solid #e4eeeb;
+          border-radius: 18px;
           box-shadow:
-            0 10px 30px
-            rgba(
-              6,
-              59,
-              70,
-              .04
-            );
+            0 10px 30px rgba(6, 59, 70, .04);
         }
-
 
         .download-panel-heading {
-          display:
-            flex;
-
-          justify-content:
-            space-between;
-
-          margin-bottom:
-            18px;
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 14px;
         }
-
 
         .download-panel-heading h2 {
-          margin:
-            5px 0 0;
-
-          color:
-            #063b46;
-
-          font-size:
-            18px;
+          margin: 5px 0 0;
+          color: #063b46;
+          font-size: 17px;
         }
-
 
         .class-download-grid {
-          display:
-            grid;
-
+          display: grid;
           grid-template-columns:
-            repeat(
-              3,
-              minmax(
-                0,
-                1fr
-              )
-            );
-
-          gap:
-            12px;
+            repeat(4, minmax(0, 1fr));
+          gap: 9px;
         }
 
-
         .class-download-card {
-          padding:
-            16px;
-
-          border:
-            1px solid #e6efed;
-
-          border-radius:
-            16px;
-
-          background:
-            #fbfdfc;
-
+          padding: 12px;
+          border: 1px solid #e6efed;
+          border-radius: 13px;
+          background: #fbfdfc;
           transition:
             transform .2s,
             box-shadow .2s;
         }
 
-
         .class-download-card:hover {
-          transform:
-            translateY(-3px);
-
+          transform: translateY(-2px);
           box-shadow:
-            0 10px 22px
-            rgba(
-              6,
-              59,
-              70,
-              .07
-            );
+            0 8px 18px rgba(6, 59, 70, .06);
         }
-
 
         .class-download-top {
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            10px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
-
 
         .class-badge {
-          width:
-            43px;
-
-          height:
-            43px;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          border-radius:
-            12px;
-
-          background:
-            #e4f7ef;
-
-          color:
-            #07956d;
-
-          font-size:
-            12px;
-
-          font-weight:
-            800;
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 10px;
+          background: #e4f7ef;
+          color: #07956d;
+          font-size: 11px;
+          font-weight: 800;
         }
-
 
         .class-download-top strong {
-          display:
-            block;
-
-          color:
-            #063b46;
-
-          font-size:
-            13px;
+          display: block;
+          color: #063b46;
+          font-size: 12px;
         }
-
 
         .class-download-top span {
-          display:
-            block;
-
-          margin-top:
-            3px;
-
-          color:
-            #95a5a7;
-
-          font-size:
-            9px;
+          display: block;
+          margin-top: 2px;
+          color: #95a5a7;
+          font-size: 8px;
         }
-
 
         .class-total {
-          margin:
-            14px 0;
-
-          padding:
-            11px;
-
-          border-radius:
-            11px;
-
-          background:
-            #f1f8f5;
+          margin: 9px 0;
+          padding: 8px;
+          border-radius: 9px;
+          background: #f1f8f5;
         }
-
 
         .class-total small {
-          display:
-            block;
-
-          color:
-            #91a1a4;
-
-          font-size:
-            8px;
-
-          letter-spacing:
-            1px;
+          display: block;
+          color: #91a1a4;
+          font-size: 7px;
+          letter-spacing: 1px;
         }
-
 
         .class-total strong {
-          display:
-            block;
-
-          margin-top:
-            3px;
-
-          color:
-            #063b46;
-
-          font-size:
-            20px;
+          display: block;
+          margin-top: 2px;
+          color: #063b46;
+          font-size: 17px;
         }
-
 
         .download-buttons {
-          display:
-            grid;
-
-          grid-template-columns:
-            1fr 1fr;
-
-          gap:
-            7px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 5px;
         }
-
 
         .download-buttons button,
         .individual-download-buttons button {
-          border:
-            1px solid #dce9e5;
-
-          background:
-            white;
-
-          color:
-            #063b46;
-
-          padding:
-            9px;
-
-          border-radius:
-            9px;
-
-          cursor:
-            pointer;
-
-          font-size:
-            10px;
-
-          font-weight:
-            800;
-
-          transition:
-            all .2s;
+          border: 1px solid #dce9e5;
+          background: white;
+          color: #063b46;
+          padding: 7px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 9px;
+          font-weight: 800;
+          transition: all .2s;
         }
-
 
         .download-buttons button:hover,
         .individual-download-buttons button:hover {
-          background:
-            #063b46;
-
-          color:
-            white;
-
-          border-color:
-            #063b46;
-
-          transform:
-            translateY(-2px);
+          background: #063b46;
+          color: white;
+          border-color: #063b46;
+          transform: translateY(-1px);
         }
 
+        /* DETAILED EXCEL */
+
+        .detailed-excel-panel {
+          padding: 11px 13px;
+        }
+
+        .detailed-excel-content {
+          display: flex;
+          align-items: center;
+          gap: 11px;
+        }
+
+        .detailed-excel-icon {
+          width: 36px;
+          height: 36px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 9px;
+          background: #e5f7ef;
+          font-size: 16px;
+        }
+
+        .detailed-excel-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .detailed-excel-info h2 {
+          margin: 2px 0 0;
+          color: #063b46;
+          font-size: 14px;
+        }
+
+        .detailed-excel-info p {
+          margin: 2px 0 0;
+          color: #91a1a4;
+          font-size: 8px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .detailed-excel-button {
+          flex-shrink: 0;
+          border: 0;
+          border-radius: 8px;
+          padding: 9px 13px;
+          background: #07956d;
+          color: white;
+          cursor: pointer;
+          font-size: 9px;
+          font-weight: 800;
+          transition: .2s;
+        }
+
+        .detailed-excel-button:hover {
+          transform: translateY(-1px);
+          box-shadow:
+            0 6px 14px rgba(7, 149, 109, .18);
+        }
 
         .download-search {
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            8px;
-
-          padding:
-            0 13px;
-
-          margin-bottom:
-            12px;
-
-          border:
-            1px solid #e2ece9;
-
-          border-radius:
-            12px;
-
-          background:
-            #fbfdfc;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 0 11px;
+          margin-bottom: 10px;
+          border: 1px solid #e2ece9;
+          border-radius: 10px;
+          background: #fbfdfc;
         }
-
 
         .download-search span {
-          color:
-            #07956d;
-
-          font-size:
-            19px;
+          color: #07956d;
+          font-size: 18px;
         }
-
 
         .download-search input {
-          flex:
-            1;
-
-          min-width:
-            0;
-
-          border:
-            0;
-
-          outline:
-            0;
-
-          padding:
-            12px 0;
-
-          background:
-            transparent;
-
-          font-size:
-            11px;
+          flex: 1;
+          min-width: 0;
+          border: 0;
+          outline: 0;
+          padding: 10px 0;
+          background: transparent;
+          font-size: 10px;
         }
-
 
         .individual-download-list {
-          display:
-            grid;
-
-          gap:
-            8px;
+          display: grid;
+          gap: 6px;
         }
 
-
         .individual-download-card {
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            11px;
-
-          padding:
-            11px;
-
-          border:
-            1px solid #e7efed;
-
-          border-radius:
-            13px;
-
-          background:
-            #fbfdfc;
-
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          padding: 9px;
+          border: 1px solid #e7efed;
+          border-radius: 11px;
+          background: #fbfdfc;
           transition:
             transform .2s,
             box-shadow .2s;
         }
 
-
         .individual-download-card:hover {
-          transform:
-            translateX(3px);
-
+          transform: translateX(2px);
           box-shadow:
-            0 7px 18px
-            rgba(
-              6,
-              59,
-              70,
-              .06
-            );
+            0 6px 15px rgba(6, 59, 70, .05);
         }
-
 
         .download-student-avatar {
-          width:
-            37px;
-
-          height:
-            37px;
-
-          flex-shrink:
-            0;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          border-radius:
-            11px;
-
-          background:
-            #e4f7ef;
-
-          color:
-            #07956d;
-
-          font-weight:
-            800;
-
-          font-size:
-            12px;
+          width: 33px;
+          height: 33px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 9px;
+          background: #e4f7ef;
+          color: #07956d;
+          font-weight: 800;
+          font-size: 11px;
         }
-
 
         .individual-student-info {
-          flex:
-            1;
-
-          min-width:
-            160px;
+          flex: 1;
+          min-width: 140px;
         }
-
 
         .individual-student-info strong {
-          display:
-            block;
-
-          color:
-            #063b46;
-
-          font-size:
-            12px;
+          display: block;
+          color: #063b46;
+          font-size: 11px;
         }
-
 
         .individual-student-info span {
-          display:
-            block;
-
-          margin-top:
-            3px;
-
-          color:
-            #96a5a7;
-
-          font-size:
-            8px;
+          display: block;
+          margin-top: 2px;
+          color: #96a5a7;
+          font-size: 7px;
         }
-
 
         .individual-balance,
         .individual-transactions {
-          min-width:
-            90px;
+          min-width: 75px;
         }
-
 
         .individual-balance small,
         .individual-transactions small {
-          display:
-            block;
-
-          color:
-            #9aa8aa;
-
-          font-size:
-            7px;
-
-          letter-spacing:
-            .8px;
+          display: block;
+          color: #9aa8aa;
+          font-size: 6px;
+          letter-spacing: .8px;
         }
-
 
         .individual-balance strong,
         .individual-transactions strong {
-          display:
-            block;
-
-          margin-top:
-            3px;
-
-          color:
-            #063b46;
-
-          font-size:
-            12px;
+          display: block;
+          margin-top: 2px;
+          color: #063b46;
+          font-size: 11px;
         }
-
 
         .individual-download-buttons {
-          display:
-            flex;
-
-          gap:
-            5px;
+          display: flex;
+          gap: 4px;
         }
-
 
         .download-empty {
-          padding:
-            40px;
-
-          text-align:
-            center;
-
-          color:
-            #96a5a7;
-
-          font-size:
-            11px;
+          padding: 35px;
+          text-align: center;
+          color: #96a5a7;
+          font-size: 10px;
         }
 
-
-        @media (max-width: 900px) {
-
+        @media (max-width: 1000px) {
           .class-download-grid {
             grid-template-columns:
-              1fr 1fr;
+              repeat(2, minmax(0, 1fr));
           }
-
-
-          .individual-download-card {
-            flex-wrap:
-              wrap;
-          }
-
         }
-
 
         @media (max-width: 600px) {
-
-          .download-page {
-            width:
-              100%;
-          }
-
-
           .download-heading {
-            margin-bottom:
-              14px;
+            margin-bottom: 14px;
           }
-
 
           .download-heading h1 {
-            font-size:
-              24px;
+            font-size: 24px;
           }
-
 
           .download-heading p {
-            font-size:
-              11px;
+            font-size: 11px;
           }
-
 
           .download-panel {
-            padding:
-              13px;
-
-            margin-bottom:
-              12px;
-
-            border-radius:
-              15px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 14px;
           }
-
 
           .download-panel-heading {
-            margin-bottom:
-              12px;
+            margin-bottom: 10px;
           }
-
 
           .download-panel-heading h2 {
-            font-size:
-              15px;
+            font-size: 15px;
           }
-
 
           .class-download-grid {
-            grid-template-columns:
-              1fr;
+            grid-template-columns: 1fr 1fr;
           }
-
 
           .class-download-card {
-            padding:
-              12px;
+            padding: 9px;
           }
 
+          .class-badge {
+            width: 31px;
+            height: 31px;
+            font-size: 9px;
+          }
+
+          .class-total {
+            margin: 7px 0;
+            padding: 7px;
+          }
+
+          .class-total strong {
+            font-size: 15px;
+          }
+
+          .detailed-excel-panel {
+            padding: 9px;
+          }
+
+          .detailed-excel-content {
+            gap: 8px;
+          }
+
+          .detailed-excel-icon {
+            width: 31px;
+            height: 31px;
+            font-size: 14px;
+          }
+
+          .detailed-excel-info h2 {
+            font-size: 12px;
+          }
+
+          .detailed-excel-info p {
+            font-size: 7px;
+          }
+
+          .detailed-excel-button {
+            padding: 8px 10px;
+            font-size: 8px;
+          }
 
           .individual-download-card {
-            padding:
-              9px;
-
-            gap:
-              8px;
-
-            border-radius:
-              11px;
+            padding: 8px;
+            gap: 7px;
+            flex-wrap: wrap;
           }
-
 
           .download-student-avatar {
-            width:
-              32px;
-
-            height:
-              32px;
-
-            border-radius:
-              9px;
+            width: 30px;
+            height: 30px;
           }
-
 
           .individual-student-info {
             min-width:
-              calc(
-                100% - 45px
-              );
+              calc(100% - 42px);
           }
-
 
           .individual-balance,
           .individual-transactions {
-            min-width:
-              70px;
+            min-width: 65px;
           }
-
 
           .individual-download-buttons {
-            width:
-              100%;
+            width: 100%;
           }
-
 
           .individual-download-buttons button {
-            flex:
-              1;
+            flex: 1;
           }
-
         }
 
       `}</style>
