@@ -5,10 +5,26 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   updateDoc,
-  getDocs,
 } from "firebase/firestore";
+
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  GraduationCap,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  Users,
+  Wallet,
+  X,
+} from "lucide-react";
 
 import { db } from "./firebase";
 
@@ -19,7 +35,9 @@ import {
   exportStudentTransactionsCSV,
 } from "./utils/exportPDF";
 
-import { exportDetailedStudentExcelByClass } from "./utils/exportDetailedExcel";
+import {
+  exportDetailedExcelForClass,
+} from "./utils/exportDetailedExcel";
 
 export default function AdminDashboard({
   classFilter = "",
@@ -27,2502 +45,1839 @@ export default function AdminDashboard({
 }) {
   const [students, setStudents] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [form, setForm] = useState({});
+  const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState("");
 
-  const [name, setName] = useState("");
-  const [adNo, setAdNo] = useState("");
-  const [className, setClassName] = useState("");
-  const [balance, setBalance] = useState("");
+  const [showAddStudent, setShowAddStudent] =
+    useState(false);
 
+  const [selectedStudent, setSelectedStudent] =
+    useState(null);
 
-  /* =========================================================
-     LOAD STUDENTS
-  ========================================================= */
+  const [transactionAmount, setTransactionAmount] =
+    useState("");
+
+  const [transactionReason, setTransactionReason] =
+    useState("");
+
+  const [transactionType, setTransactionType] =
+    useState("add");
+
+  const [studentName, setStudentName] =
+    useState("");
+
+  const [studentAdNo, setStudentAdNo] =
+    useState("");
+
+  const [studentClass, setStudentClass] =
+    useState("S1");
+
+  const [studentBalance, setStudentBalance] =
+    useState("");
+
+  // =====================================================
+  // LOAD STUDENTS
+  // =====================================================
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, "students"),
       (snapshot) => {
-        const data = snapshot.docs.map((document) => ({
-          id: document.id,
-          ...document.data(),
+        const list = snapshot.docs.map((item) => ({
+          id: item.id,
+          ...item.data(),
         }));
 
-        setStudents(data);
+        setStudents(list);
+        setLoading(false);
       },
       (error) => {
         console.error("Student loading error:", error);
+        setLoading(false);
       }
     );
 
     return () => unsubscribe();
   }, []);
 
+  // =====================================================
+  // LOAD PAYMENTS
+  // =====================================================
 
-  /* =========================================================
-     LOAD PAYMENTS
-  ========================================================= */
+  async function loadPayments() {
+    try {
+      const snapshot = await getDocs(
+        collection(db, "payments")
+      );
+
+      const list = snapshot.docs.map((item) => ({
+        id: item.id,
+        ...item.data(),
+      }));
+
+      setPayments(list);
+    } catch (error) {
+      console.error("Payment loading error:", error);
+    }
+  }
 
   useEffect(() => {
-    const loadPayments = async () => {
-      try {
-        const snapshot = await getDocs(
-          collection(db, "payments")
-        );
-
-        const data = snapshot.docs.map((document) => ({
-          id: document.id,
-          ...document.data(),
-        }));
-
-        setPayments(data);
-      } catch (error) {
-        console.error(
-          "Payment loading error:",
-          error
-        );
-      }
-    };
-
     loadPayments();
   }, []);
 
+  // =====================================================
+  // FILTER STUDENTS
+  // =====================================================
 
-  /* =========================================================
-     ADD STUDENT
-  ========================================================= */
+  const filteredStudents = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-  const handleAdd = async () => {
-    if (!name.trim() || !adNo.trim()) {
-      alert("Name and Admission No are required");
+    return students.filter((student) => {
+      const matchesClass =
+        !classFilter ||
+        String(student.className || "").toLowerCase() ===
+          String(classFilter).toLowerCase();
+
+      const matchesSearch =
+        !query ||
+        String(student.name || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(student.adNo || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(student.className || "")
+          .toLowerCase()
+          .includes(query);
+
+      return matchesClass && matchesSearch;
+    });
+  }, [students, classFilter, search]);
+
+  // =====================================================
+  // TOTAL BALANCE
+  // =====================================================
+
+  const totalBalance = useMemo(() => {
+    return filteredStudents.reduce(
+      (total, student) =>
+        total + Number(student.balance || 0),
+      0
+    );
+  }, [filteredStudents]);
+
+  // =====================================================
+  // CLASSES
+  // =====================================================
+
+  const classes = useMemo(() => {
+    const found = new Set();
+
+    students.forEach((student) => {
+      if (student.className) {
+        found.add(
+          String(student.className).toUpperCase()
+        );
+      }
+    });
+
+    ["S1", "S2", "S3", "S4"].forEach((item) =>
+      found.add(item)
+    );
+
+    return [...found].sort();
+  }, [students]);
+
+  // =====================================================
+  // ADD STUDENT
+  // =====================================================
+
+  async function handleAddStudent(event) {
+    event.preventDefault();
+
+    if (!studentName.trim()) {
+      alert("Please enter student name.");
+      return;
+    }
+
+    if (!studentAdNo.trim()) {
+      alert("Please enter admission number.");
       return;
     }
 
     try {
-      await addDoc(
-        collection(db, "students"),
-        {
-          name: name.trim(),
-          adNo: adNo.trim(),
-          className: className.trim(),
-          balance: Number(balance || 0),
-          password: adNo.trim(),
-        }
-      );
+      await addDoc(collection(db, "students"), {
+        name: studentName.trim(),
+        adNo: studentAdNo.trim(),
+        className: studentClass,
+        balance: Number(studentBalance || 0),
+        password: studentAdNo.trim(),
+      });
 
-      alert(
-        `Student added successfully.\n\nLogin:\n${adNo} / ${adNo}`
-      );
+      setStudentName("");
+      setStudentAdNo("");
+      setStudentClass("S1");
+      setStudentBalance("");
+      setShowAddStudent(false);
 
-      setName("");
-      setAdNo("");
-      setClassName("");
-      setBalance("");
+      alert("Student added successfully.");
     } catch (error) {
       console.error(error);
-
-      alert("Failed to add student");
+      alert("Unable to add student.");
     }
-  };
+  }
 
+  // =====================================================
+  // DELETE STUDENT
+  // =====================================================
 
-  /* =========================================================
-     DELETE STUDENT
-  ========================================================= */
-
-  const deleteStudent = async (id) => {
+  async function handleDeleteStudent(student) {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this student?"
+      `Delete ${student.name}?`
     );
 
     if (!confirmed) return;
 
     try {
       await deleteDoc(
-        doc(db, "students", id)
+        doc(db, "students", student.id)
       );
 
-      // Remove the student's local payments from the UI.
-      setPayments((previous) =>
-        previous.filter(
-          (payment) =>
-            payment.studentId !== id
-        )
-      );
+      if (selectedStudent?.id === student.id) {
+        setSelectedStudent(null);
+      }
     } catch (error) {
       console.error(error);
-
-      alert("Failed to delete student");
+      alert("Unable to delete student.");
     }
-  };
+  }
 
+  // =====================================================
+  // TRANSACTION
+  // =====================================================
 
-  /* =========================================================
-     FORM CHANGE
-  ========================================================= */
+  async function handleTransaction(event) {
+    event.preventDefault();
 
-  const handleChange = (
-    id,
-    field,
-    value
-  ) => {
-    setForm((previous) => ({
-      ...previous,
+    if (!selectedStudent) return;
 
-      [id]: {
-        ...previous[id],
-        [field]: value,
-      },
-    }));
-  };
+    const amount = Number(transactionAmount);
 
-
-  /* =========================================================
-     ADD / DEDUCT TRANSACTION
-  ========================================================= */
-
-  const handleTransaction = async (
-    student
-  ) => {
-    const data =
-      form[student.id] || {};
-
-    const amount =
-      Number(data.amount);
-
-    const reason =
-      data.reason?.trim();
-
-    const type =
-      data.type || "add";
-
-    if (
-      !amount ||
-      amount <= 0 ||
-      !reason
-    ) {
-      alert(
-        "Enter a valid amount and reason"
-      );
-
+    if (!amount || amount <= 0) {
+      alert("Enter a valid amount.");
       return;
     }
 
-    const currentBalance =
-      Number(student.balance || 0);
+    if (!transactionReason.trim()) {
+      alert("Enter a reason.");
+      return;
+    }
+
+    const oldBalance = Number(
+      selectedStudent.balance || 0
+    );
 
     const newBalance =
-      type === "add"
-        ? currentBalance + amount
-        : currentBalance - amount;
+      transactionType === "add"
+        ? oldBalance + amount
+        : oldBalance - amount;
 
     try {
       await updateDoc(
         doc(
           db,
           "students",
-          student.id
+          selectedStudent.id
         ),
         {
           balance: newBalance,
         }
       );
 
-      const transaction = {
-        studentId:
-          student.id,
-
-        studentName:
-          student.name,
-
+      await addDoc(collection(db, "payments"), {
+        studentId: selectedStudent.id,
+        studentName: selectedStudent.name,
         amount,
+        reason: transactionReason.trim(),
+        type: transactionType,
+        createdAt: new Date(),
+      });
 
-        reason,
+      setTransactionAmount("");
+      setTransactionReason("");
+      setTransactionType("add");
+      setSelectedStudent(null);
 
-        type,
-
-        createdAt:
-          new Date(),
-      };
-
-      const paymentRef =
-        await addDoc(
-          collection(db, "payments"),
-          transaction
-        );
-
-      setPayments((previous) => [
-        ...previous,
-
-        {
-          id:
-            paymentRef.id,
-
-          ...transaction,
-        },
-      ]);
-
-      setForm((previous) => ({
-        ...previous,
-
-        [student.id]: {},
-      }));
+      await loadPayments();
     } catch (error) {
       console.error(error);
-
-      alert("Transaction failed");
+      alert("Transaction failed.");
     }
-  };
+  }
 
+  // =====================================================
+  // CLASS DETAILED EXCEL
+  // =====================================================
 
-  /* =========================================================
-     CSV IMPORT
-  ========================================================= */
-
-  const handleCSVUpload = (
-    event
-  ) => {
-    const file =
-      event.target.files?.[0];
-
-    if (!file) return;
-
-    const reader =
-      new FileReader();
-
-    reader.onload = async (
-      loadEvent
-    ) => {
-      try {
-        const text =
-          loadEvent.target.result;
-
-        const rows =
-          text
-            .split(/\r?\n/)
-            .slice(1)
-            .filter(Boolean);
-
-        for (
-          const row of rows
-        ) {
-          const values =
-            row
-              .split(",")
-              .map((value) =>
-                value
-                  .trim()
-                  .replace(
-                    /^"|"$/g,
-                    ""
-                  )
-              );
-
-          const [
-            csvName,
-            csvAdNo,
-            csvClass,
-          ] = values;
-
-          if (
-            !csvName ||
-            !csvAdNo
-          ) {
-            continue;
-          }
-
-          await addDoc(
-            collection(
-              db,
-              "students"
-            ),
-            {
-              name:
-                csvName,
-
-              adNo:
-                csvAdNo,
-
-              className:
-                csvClass || "",
-
-              balance:
-                0,
-
-              password:
-                csvAdNo,
-            }
-          );
-        }
-
-        alert(
-          "CSV imported successfully"
-        );
-      } catch (error) {
-        console.error(error);
-
-        alert(
-          "CSV import failed"
-        );
-      }
-    };
-
-    reader.readAsText(file);
-
-    event.target.value = "";
-  };
-
-
-  /* =========================================================
-     CLASS FILTER
-  ========================================================= */
-
-  const classStudents =
-    classFilter
-      ? students.filter(
-          (student) =>
-            student.className
-              ?.trim()
-              .toLowerCase() ===
-            classFilter
-              .trim()
-              .toLowerCase()
-        )
-      : students;
-
-
-  /* =========================================================
-     SEARCH
-  ========================================================= */
-
-  const filteredStudents =
-    useMemo(() => {
-      const searchText =
-        search
-          .toLowerCase()
-          .trim();
-
-      if (!searchText) {
-        return classStudents;
-      }
-
-      return classStudents.filter(
-        (student) =>
-          student.name
-            ?.toLowerCase()
-            .includes(searchText) ||
-
-          student.adNo
-            ?.toLowerCase()
-            .includes(searchText) ||
-
-          student.className
-            ?.toLowerCase()
-            .includes(searchText)
-      );
-    }, [
-      classStudents,
-      search,
-    ]);
-
-
-  /* =========================================================
-     CLASS BALANCE
-  ========================================================= */
-
-  const totalBalance =
-    useMemo(() => {
-      return classStudents.reduce(
-        (total, student) =>
-          total +
-          Number(
-            student.balance || 0
-          ),
-        0
-      );
-    }, [classStudents]);
-
-
-  /* =========================================================
-     STUDENT PAYMENTS
-  ========================================================= */
-
-  const getStudentPayments = (
-    studentId
-  ) => {
-    return payments
-      .filter(
-        (payment) =>
-          payment.studentId ===
-          studentId
-      )
-      .sort(
-        (a, b) =>
-          getPaymentTime(b) -
-          getPaymentTime(a)
-      );
-  };
-
-
-  /* =========================================================
-     STUDENT PDF
-  ========================================================= */
-
-  const downloadStudentPDF =
-    (student) => {
-      const studentPayments =
-        getStudentPayments(
-          student.id
-        );
-
-      exportStudentBalancePDF(
-        student,
-        studentPayments
-      );
-    };
-
-
-  /* =========================================================
-     STUDENT CSV
-  ========================================================= */
-
-  const downloadStudentCSV =
-    (student) => {
-      const studentPayments =
-        getStudentPayments(
-          student.id
-        );
-
-      exportStudentTransactionsCSV(
-        student,
-        studentPayments
-      );
-    };
-
-
-  /* =========================================================
-     CLASS PDF
-  ========================================================= */
-
-  const downloadClassPDF =
-    (classNameToDownload) => {
-      const classData =
-        students.filter(
-          (student) =>
-            student.className
-              ?.trim()
-              .toLowerCase() ===
-            classNameToDownload
-              .trim()
-              .toLowerCase()
-        );
-
-      exportClassBalancePDF(
-        classData,
-        classNameToDownload
-      );
-    };
-
-
-  /* =========================================================
-     CLASS CSV
-  ========================================================= */
-
-  const downloadClassCSV =
-    (classNameToDownload) => {
-      const classData =
-        students.filter(
-          (student) =>
-            student.className
-              ?.trim()
-              .toLowerCase() ===
-            classNameToDownload
-              .trim()
-              .toLowerCase()
-        );
-
-      exportClassCSV(
-        classData,
-        classNameToDownload
-      );
-    };
-
-
-  /* =========================================================
-     DETAILED EXCEL
-  ========================================================= */
-
-  const downloadDetailedExcel = () => {
-    exportDetailedStudentExcelByClass(
+  function downloadDetailedExcel(className) {
+    exportDetailedExcelForClass(
+      className,
       students,
       payments
     );
-  };
+  }
 
-
-  /* =========================================================
-     DOWNLOAD MODE
-  ========================================================= */
+  // =====================================================
+  // DOWNLOAD MODE
+  // =====================================================
 
   if (downloadMode) {
     return (
       <DownloadSection
         students={students}
         payments={payments}
-        downloadStudentPDF={
-          downloadStudentPDF
-        }
-        downloadStudentCSV={
-          downloadStudentCSV
-        }
-        downloadClassPDF={
-          downloadClassPDF
-        }
-        downloadClassCSV={
-          downloadClassCSV
-        }
-        downloadDetailedExcel={
-          downloadDetailedExcel
-        }
+        classes={classes}
+        onDetailedExcel={downloadDetailedExcel}
       />
     );
   }
 
-
-  /* =========================================================
-     NORMAL DASHBOARD
-  ========================================================= */
-
-  const title =
-    classFilter
-      ? `${classFilter} Accounts`
-      : "Accounts Dashboard";
-
+  // =====================================================
+  // MAIN DASHBOARD
+  // =====================================================
 
   return (
     <div className="admin-dashboard">
-
-      {/* HEADER */}
-
-      <header className="dashboard-heading">
-
+      <div className="admin-topbar">
         <div>
-          <span>
-            SMAC • FIDHA ACCOUNTS
-          </span>
+          <div className="admin-eyebrow">
+            SMAC ACCOUNTS
+          </div>
 
           <h1>
-            {title}
+            {classFilter
+              ? `${classFilter} Accounts`
+              : "Accounts Dashboard"}
           </h1>
 
           <p>
-            {classFilter
-              ? `Viewing only ${classFilter} students`
-              : "Manage students, balances and transactions."}
+            Manage students, balances and
+            transactions.
           </p>
         </div>
 
+        <button
+          className="primary-action"
+          onClick={() => setShowAddStudent(true)}
+        >
+          <Plus size={18} />
+          <span>Add Student</span>
+        </button>
+      </div>
 
-        <div className="dashboard-stats">
+      {/* STATS */}
 
-          <div>
-            <small>
-              STUDENTS
-            </small>
-
-            <strong>
-              {classStudents.length}
-            </strong>
+      <div className="admin-stats">
+        <div className="admin-stat-card">
+          <div className="stat-icon">
+            <Users size={20} />
           </div>
 
-
           <div>
-            <small>
-              TOTAL BALANCE
-            </small>
+            <span>Students</span>
 
             <strong>
-              {totalBalance.toLocaleString(
-                "en-IN"
-              )}
+              {filteredStudents.length}
             </strong>
           </div>
-
         </div>
 
-      </header>
-
-
-      {/* ADD STUDENT */}
-
-      {!classFilter && (
-        <section className="add-student-card">
-
-          <div className="section-heading">
-
-            <div>
-              <span>
-                STUDENT MANAGEMENT
-              </span>
-
-              <h2>
-                Add Student
-              </h2>
-            </div>
-
+        <div className="admin-stat-card">
+          <div className="stat-icon balance-icon">
+            <Wallet size={20} />
           </div>
 
+          <div>
+            <span>Total Balance</span>
 
-          <div className="student-form">
+            <strong>
+              {totalBalance.toLocaleString("en-IN")}
+            </strong>
+          </div>
+        </div>
 
-            <input
-              placeholder="Student Name"
-              value={name}
-              onChange={(e) =>
-                setName(
-                  e.target.value
-                )
-              }
-            />
-
-
-            <input
-              placeholder="Admission No"
-              value={adNo}
-              onChange={(e) =>
-                setAdNo(
-                  e.target.value
-                )
-              }
-            />
-
-
-            <select
-              value={className}
-              onChange={(e) =>
-                setClassName(
-                  e.target.value
-                )
-              }
-            >
-              <option value="">
-                Select Class
-              </option>
-
-              <option value="S1">
-                S1
-              </option>
-
-              <option value="S2">
-                S2
-              </option>
-
-              <option value="S3">
-                S3
-              </option>
-
-              <option value="S4">
-                S4
-              </option>
-            </select>
-
-
-            <input
-              type="number"
-              placeholder="Opening Balance"
-              value={balance}
-              onChange={(e) =>
-                setBalance(
-                  e.target.value
-                )
-              }
-            />
-
-
-            <button
-              className="primary-button"
-              onClick={handleAdd}
-            >
-              + Add Student
-            </button>
-
+        <div className="admin-stat-card">
+          <div className="stat-icon">
+            <GraduationCap size={20} />
           </div>
 
-        </section>
-      )}
+          <div>
+            <span>Class</span>
 
+            <strong>
+              {classFilter || "All Classes"}
+            </strong>
+          </div>
+        </div>
+      </div>
 
       {/* SEARCH */}
 
-      <section className="tools-row">
-
-        <div className="search-box">
-
-          <span>
-            ⌕
-          </span>
+      <div className="admin-toolbar">
+        <div className="modern-search">
+          <Search size={18} />
 
           <input
-            placeholder={
-              classFilter
-                ? `Search ${classFilter} students...`
-                : "Search by name, admission no or class..."
-            }
             value={search}
-            onChange={(e) =>
-              setSearch(
-                e.target.value
-              )
+            onChange={(event) =>
+              setSearch(event.target.value)
             }
+            placeholder="Search student, admission no..."
           />
 
+          {search && (
+            <button
+              className="clear-search"
+              onClick={() => setSearch("")}
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
-
-        {!classFilter && (
-          <label className="csv-button">
-
-            Import CSV
-
-            <input
-              type="file"
-              accept=".csv"
-              onChange={
-                handleCSVUpload
-              }
-            />
-
-          </label>
-        )}
-
-      </section>
-
+        <button
+          className="refresh-button"
+          onClick={() => window.location.reload()}
+        >
+          <RefreshCw size={17} />
+          Refresh
+        </button>
+      </div>
 
       {/* STUDENTS */}
 
-      <section className="students-section">
+      {loading ? (
+        <div className="empty-admin">
+          <RefreshCw
+            size={25}
+            className="spin"
+          />
 
-        <div className="section-heading">
-
-          <div>
-
-            <span>
-              {classFilter
-                ? `${classFilter} ACCOUNT LIST`
-                : "ACCOUNT LIST"}
-            </span>
-
-            <h2>
-              Students
-            </h2>
-
-          </div>
-
-
-          <strong className="student-count">
-            {filteredStudents.length}
-          </strong>
-
+          <span>Loading students...</span>
         </div>
+      ) : filteredStudents.length === 0 ? (
+        <div className="empty-admin">
+          <Users size={30} />
 
+          <h3>No students found</h3>
 
-        {filteredStudents.length === 0 ? (
-
-          <div className="empty-students">
-            No students found in{" "}
-            {classFilter || "the database"}.
-          </div>
-
-        ) : (
-
-          <div className="students-grid">
-
-            {filteredStudents.map(
-              (student) => {
-
-                const studentForm =
-                  form[
-                    student.id
-                  ] || {};
-
-                return (
-                  <div
-                    className="student-card"
-                    key={student.id}
-                  >
-
-                    {/* STUDENT TOP */}
-
-                    <div className="student-top">
-
-                      <div className="student-avatar">
-                        {student.name
-                          ?.charAt(0)
-                          ?.toUpperCase()}
-                      </div>
-
-
-                      <div className="student-info">
-
-                        <h3>
-                          {student.name}
-                        </h3>
-
-                        <p>
-                          {student.adNo}
-
-                          {student.className &&
-                            ` • ${student.className}`}
-                        </p>
-
-                      </div>
-
-
-                      <button
-                        className="delete-button"
-                        onClick={() =>
-                          deleteStudent(
-                            student.id
-                          )
-                        }
-                        title="Delete student"
-                      >
-                        ×
-                      </button>
-
-                    </div>
-
-
-                    {/* BALANCE */}
-
-                    <div className="student-balance">
-
-                      <small>
-                        CURRENT BALANCE
-                      </small>
-
-                      <strong>
-                        {Number(
-                          student.balance ||
-                            0
-                        ).toLocaleString(
-                          "en-IN"
-                        )}
-                      </strong>
-
-                    </div>
-
-
-                    {/* TRANSACTION */}
-
-                    <div className="transaction-form">
-
-                      <div className="transaction-title">
-                        Update Account
-                      </div>
-
-
-                      <input
-                        type="number"
-                        placeholder="Amount"
-                        value={
-                          studentForm.amount ||
-                          ""
-                        }
-                        onChange={(e) =>
-                          handleChange(
-                            student.id,
-                            "amount",
-                            e.target.value
-                          )
-                        }
-                      />
-
-
-                      <input
-                        className="reason-input"
-                        placeholder="Reason"
-                        value={
-                          studentForm.reason ||
-                          ""
-                        }
-                        onChange={(e) =>
-                          handleChange(
-                            student.id,
-                            "reason",
-                            e.target.value
-                          )
-                        }
-                      />
-
-
-                      <select
-                        value={
-                          studentForm.type ||
-                          "add"
-                        }
-                        onChange={(e) =>
-                          handleChange(
-                            student.id,
-                            "type",
-                            e.target.value
-                          )
-                        }
-                      >
-
-                        <option value="add">
-                          Add
-                        </option>
-
-                        <option value="deduct">
-                          Deduct
-                        </option>
-
-                      </select>
-
-
-                      <button
-                        className="update-button"
-                        onClick={() =>
-                          handleTransaction(
-                            student
-                          )
-                        }
-                      >
-                        Update Balance
-                      </button>
-
-
-                      <button
-                        className="download-student-button"
-                        onClick={() =>
-                          downloadStudentPDF(
-                            student
-                          )
-                        }
-                      >
-                        ↓ Download Account PDF
-                      </button>
-
-                    </div>
-
-                  </div>
-                );
+          <p>
+            Add a student or change your search.
+          </p>
+        </div>
+      ) : (
+        <div className="student-grid">
+          {filteredStudents.map((student) => (
+            <StudentAdminCard
+              key={student.id}
+              student={student}
+              onTransaction={() =>
+                setSelectedStudent(student)
               }
-            )}
+              onDelete={() =>
+                handleDeleteStudent(student)
+              }
+            />
+          ))}
+        </div>
+      )}
 
+      {/* ADD STUDENT */}
+
+      {showAddStudent && (
+        <Modal
+          title="Add Student"
+          icon={<Plus size={20} />}
+          onClose={() => setShowAddStudent(false)}
+        >
+          <form
+            onSubmit={handleAddStudent}
+            className="modern-form"
+          >
+            <label>
+              Student Name
+
+              <input
+                value={studentName}
+                onChange={(event) =>
+                  setStudentName(event.target.value)
+                }
+                placeholder="Enter student name"
+              />
+            </label>
+
+            <label>
+              Admission Number
+
+              <input
+                value={studentAdNo}
+                onChange={(event) =>
+                  setStudentAdNo(event.target.value)
+                }
+                placeholder="Enter admission number"
+              />
+            </label>
+
+            <label>
+              Class
+
+              <select
+                value={studentClass}
+                onChange={(event) =>
+                  setStudentClass(event.target.value)
+                }
+              >
+                <option value="S1">S1</option>
+                <option value="S2">S2</option>
+                <option value="S3">S3</option>
+                <option value="S4">S4</option>
+              </select>
+            </label>
+
+            <label>
+              Opening Balance
+
+              <input
+                type="number"
+                min="0"
+                value={studentBalance}
+                onChange={(event) =>
+                  setStudentBalance(event.target.value)
+                }
+                placeholder="0"
+              />
+            </label>
+
+            <button
+              type="submit"
+              className="primary-action full-width"
+            >
+              <Plus size={18} />
+              Add Student
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {/* TRANSACTION */}
+
+      {selectedStudent && (
+        <Modal
+          title="New Transaction"
+          icon={<Wallet size={20} />}
+          onClose={() => setSelectedStudent(null)}
+        >
+          <div className="transaction-student">
+            <div className="student-mini-avatar">
+              {String(
+                selectedStudent.name || "S"
+              )
+                .charAt(0)
+                .toUpperCase()}
+            </div>
+
+            <div>
+              <strong>
+                {selectedStudent.name}
+              </strong>
+
+              <span>
+                {selectedStudent.adNo} ·{" "}
+                {selectedStudent.className}
+              </span>
+            </div>
+
+            <div className="transaction-current">
+              {Number(
+                selectedStudent.balance || 0
+              ).toLocaleString("en-IN")}
+            </div>
           </div>
-        )}
 
-      </section>
-
-
-      {/* =====================================================
-          DASHBOARD STYLES
-      ===================================================== */}
-
-      <style>{`
-
-        .admin-dashboard {
-          max-width: 1250px;
-          margin: 0 auto;
-          width: 100%;
-        }
-
-        .dashboard-heading {
-          display: flex;
-          justify-content: space-between;
-          gap: 20px;
-          margin-bottom: 25px;
-        }
-
-        .dashboard-heading
-        > div:first-child
-        > span,
-        .section-heading span {
-          color: #07956d;
-          font-size: 9px;
-          letter-spacing: 1.5px;
-          font-weight: 800;
-        }
-
-        .dashboard-heading h1 {
-          margin: 6px 0;
-          color: #063b46;
-          font-size: 32px;
-          line-height: 1.15;
-        }
-
-        .dashboard-heading p {
-          margin: 0;
-          color: #8a9a9d;
-          font-size: 13px;
-        }
-
-        .dashboard-stats {
-          display: flex;
-          gap: 10px;
-        }
-
-        .dashboard-stats > div {
-          min-width: 115px;
-          padding: 13px;
-          border: 1px solid #e2ece9;
-          border-radius: 14px;
-          background: white;
-        }
-
-        .dashboard-stats small {
-          display: block;
-          color: #94a4a7;
-          font-size: 8px;
-          letter-spacing: 1px;
-        }
-
-        .dashboard-stats strong {
-          display: block;
-          margin-top: 5px;
-          color: #063b46;
-          font-size: 18px;
-        }
-
-        .add-student-card,
-        .students-section {
-          background: white;
-          border: 1px solid #e4eeeb;
-          border-radius: 20px;
-          padding: 22px;
-          margin-bottom: 18px;
-          box-shadow:
-            0 10px 30px rgba(6, 59, 70, .04);
-        }
-
-        .section-heading {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 17px;
-        }
-
-        .section-heading h2 {
-          margin: 5px 0 0;
-          color: #063b46;
-          font-size: 18px;
-        }
-
-        .student-form {
-          display: grid;
-          grid-template-columns:
-            1.4fr 1fr 1fr .8fr auto;
-          gap: 9px;
-        }
-
-        .student-form input,
-        .student-form select,
-        .transaction-form input,
-        .transaction-form select {
-          width: 100%;
-          min-width: 0;
-          box-sizing: border-box;
-          border: 1px solid #dfeae7;
-          border-radius: 10px;
-          padding: 11px 12px;
-          outline: none;
-          font-size: 12px;
-          background: #fbfdfc;
-        }
-
-        .student-form input:focus,
-        .student-form select:focus,
-        .transaction-form input:focus,
-        .transaction-form select:focus {
-          border-color: #07956d;
-          box-shadow:
-            0 0 0 3px rgba(7, 149, 109, .07);
-        }
-
-        .primary-button,
-        .update-button,
-        .download-student-button,
-        .csv-button {
-          border: 0;
-          border-radius: 10px;
-          cursor: pointer;
-          font-size: 11px;
-          font-weight: 700;
-          transition:
-            transform .2s ease,
-            box-shadow .2s ease,
-            background .2s ease;
-        }
-
-        .primary-button {
-          background: #063b46;
-          color: white;
-          padding: 0 17px;
-        }
-
-        .primary-button:hover,
-        .update-button:hover {
-          transform: translateY(-2px);
-          background: #07956d;
-          box-shadow:
-            0 7px 16px rgba(7, 149, 109, .18);
-        }
-
-        .tools-row {
-          display: flex;
-          gap: 10px;
-          margin-bottom: 18px;
-        }
-
-        .search-box {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: white;
-          border: 1px solid #e4eeeb;
-          border-radius: 13px;
-          padding: 0 13px;
-        }
-
-        .search-box span {
-          color: #07956d;
-          font-size: 20px;
-        }
-
-        .search-box input {
-          flex: 1;
-          min-width: 0;
-          border: 0;
-          outline: 0;
-          padding: 13px 0;
-          font-size: 12px;
-        }
-
-        .csv-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0 18px;
-          background: white;
-          color: #063b46;
-          border: 1px solid #dfeae7;
-        }
-
-        .csv-button:hover {
-          transform: translateY(-2px);
-          background: #063b46;
-          color: white;
-        }
-
-        .csv-button input {
-          display: none;
-        }
-
-        .student-count {
-          width: 30px;
-          height: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 9px;
-          background: #edf7f4;
-          color: #07956d;
-          font-size: 11px;
-        }
-
-        .students-grid {
-          display: grid;
-          grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-          gap: 13px;
-        }
-
-        .student-card {
-          min-width: 0;
-          padding: 16px;
-          border: 1px solid #e7efed;
-          border-radius: 17px;
-          background: #fcfefd;
-          transition:
-            transform .2s ease,
-            box-shadow .2s ease;
-        }
-
-        .student-card:hover {
-          transform: translateY(-3px);
-          box-shadow:
-            0 12px 25px rgba(6, 59, 70, .07);
-        }
-
-        .student-top {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .student-avatar {
-          width: 40px;
-          height: 40px;
-          flex-shrink: 0;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #e3f6f0;
-          color: #07956d;
-          font-weight: 800;
-        }
-
-        .student-info {
-          min-width: 0;
-          flex: 1;
-        }
-
-        .student-info h3 {
-          margin: 0;
-          color: #063b46;
-          font-size: 14px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .student-info p {
-          margin: 3px 0 0;
-          color: #91a0a3;
-          font-size: 9px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .delete-button {
-          width: 28px;
-          height: 28px;
-          flex-shrink: 0;
-          border: 0;
-          border-radius: 8px;
-          background: #fff0ee;
-          color: #d95f55;
-          cursor: pointer;
-          font-size: 17px;
-        }
-
-        .student-balance {
-          margin: 14px 0;
-          padding: 13px;
-          border-radius: 12px;
-          background: #f1f8f5;
-        }
-
-        .student-balance small {
-          display: block;
-          color: #91a0a3;
-          font-size: 8px;
-          letter-spacing: 1px;
-        }
-
-        .student-balance strong {
-          display: block;
-          margin-top: 4px;
-          color: #063b46;
-          font-size: 22px;
-        }
-
-        .transaction-form {
-          display: grid;
-          grid-template-columns: .75fr 1.45fr .75fr;
-          gap: 7px;
-        }
-
-        .transaction-title {
-          grid-column: 1 / -1;
-          color: #61777b;
-          font-size: 10px;
-          font-weight: 700;
-        }
-
-        .update-button {
-          background: #07956d;
-          color: white;
-          padding: 10px;
-        }
-
-        .download-student-button {
-          grid-column: 1 / -1;
-          padding: 9px;
-          background: white;
-          color: #063b46;
-          border: 1px solid #dce9e5;
-        }
-
-        .download-student-button:hover {
-          transform: translateY(-2px);
-          background: #edf7f4;
-          border-color: #07956d;
-        }
-
-        .empty-students {
-          padding: 50px;
-          text-align: center;
-          color: #95a4a7;
-          font-size: 12px;
-        }
-
-        @media (max-width: 1000px) {
-          .student-form {
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .primary-button {
-            padding: 11px;
-          }
-        }
-
-        @media (max-width: 750px) {
-          .dashboard-heading {
-            flex-direction: column;
-          }
-
-          .students-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        @media (max-width: 550px) {
-          .admin-dashboard {
-            width: 100%;
-            overflow: hidden;
-          }
-
-          .dashboard-heading {
-            gap: 12px;
-            margin-bottom: 14px;
-          }
-
-          .dashboard-heading h1 {
-            font-size: 24px;
-          }
-
-          .dashboard-heading p {
-            font-size: 11px;
-          }
-
-          .dashboard-stats {
-            width: 100%;
-            gap: 7px;
-          }
-
-          .dashboard-stats > div {
-            flex: 1;
-            min-width: 0;
-            padding: 10px;
-            border-radius: 11px;
-          }
-
-          .dashboard-stats strong {
-            font-size: 15px;
-          }
-
-          .add-student-card,
-          .students-section {
-            padding: 14px;
-            margin-bottom: 12px;
-            border-radius: 15px;
-          }
-
-          .section-heading {
-            margin-bottom: 12px;
-          }
-
-          .section-heading h2 {
-            font-size: 16px;
-          }
-
-          .student-form {
-            grid-template-columns: 1fr;
-            gap: 7px;
-          }
-
-          .student-form input,
-          .student-form select {
-            height: 42px;
-            padding: 9px 11px;
-          }
-
-          .primary-button {
-            height: 42px;
-            padding: 0 12px;
-          }
-
-          .tools-row {
-            flex-direction: column;
-            gap: 7px;
-            margin-bottom: 12px;
-          }
-
-          .search-box {
-            min-height: 42px;
-          }
-
-          .search-box input {
-            font-size: 11px;
-            padding: 10px 0;
-          }
-
-          .csv-button {
-            min-height: 40px;
-          }
-
-          .student-count {
-            width: 27px;
-            height: 27px;
-          }
-
-          .students-grid {
-            gap: 8px;
-          }
-
-          .student-card {
-            padding: 11px;
-            border-radius: 13px;
-          }
-
-          .student-card:hover {
-            transform: none;
-          }
-
-          .student-top {
-            gap: 8px;
-          }
-
-          .student-avatar {
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            font-size: 13px;
-          }
-
-          .student-info h3 {
-            font-size: 12px;
-          }
-
-          .student-info p {
-            margin-top: 2px;
-            font-size: 8px;
-          }
-
-          .delete-button {
-            width: 25px;
-            height: 25px;
-            font-size: 15px;
-          }
-
-          .student-balance {
-            margin: 9px 0;
-            padding: 9px;
-            border-radius: 10px;
-          }
-
-          .student-balance small {
-            font-size: 7px;
-          }
-
-          .student-balance strong {
-            margin-top: 2px;
-            font-size: 18px;
-          }
-
-          .transaction-form {
-            grid-template-columns: 1fr 1.35fr;
-            gap: 6px;
-          }
-
-          .transaction-title {
-            grid-column: 1 / -1;
-            font-size: 9px;
-          }
-
-          .transaction-form input,
-          .transaction-form select {
-            height: 38px;
-            padding: 8px;
-            border-radius: 8px;
-            font-size: 10px;
-          }
-
-          .update-button {
-            height: 38px;
-            padding: 7px;
-            font-size: 9px;
-          }
-
-          .download-student-button {
-            grid-column: 1 / -1;
-            height: 36px;
-            padding: 7px;
-            font-size: 9px;
-          }
-
-          .empty-students {
-            padding: 35px 15px;
-          }
-        }
-
-        @media (max-width: 360px) {
-          .add-student-card,
-          .students-section {
-            padding: 11px;
-          }
-
-          .student-card {
-            padding: 9px;
-          }
-
-          .student-balance strong {
-            font-size: 17px;
-          }
-
-          .transaction-form {
-            gap: 5px;
-          }
-
-          .transaction-form input,
-          .transaction-form select {
-            font-size: 9px;
-          }
-        }
-
-      `}</style>
-
+          <form
+            onSubmit={handleTransaction}
+            className="modern-form"
+          >
+            <div className="transaction-type">
+              <button
+                type="button"
+                className={
+                  transactionType === "add"
+                    ? "active add"
+                    : ""
+                }
+                onClick={() =>
+                  setTransactionType("add")
+                }
+              >
+                <ArrowDownToLine size={18} />
+                Add
+              </button>
+
+              <button
+                type="button"
+                className={
+                  transactionType === "deduct"
+                    ? "active deduct"
+                    : ""
+                }
+                onClick={() =>
+                  setTransactionType("deduct")
+                }
+              >
+                <ArrowUpFromLine size={18} />
+                Deduct
+              </button>
+            </div>
+
+            <label>
+              Amount
+
+              <input
+                type="number"
+                min="0"
+                value={transactionAmount}
+                onChange={(event) =>
+                  setTransactionAmount(
+                    event.target.value
+                  )
+                }
+                placeholder="Enter amount"
+              />
+            </label>
+
+            <label>
+              Reason
+
+              <input
+                value={transactionReason}
+                onChange={(event) =>
+                  setTransactionReason(
+                    event.target.value
+                  )
+                }
+                placeholder="e.g. Fee payment, books..."
+              />
+            </label>
+
+            <button
+              type="submit"
+              className="primary-action full-width"
+            >
+              <Wallet size={18} />
+              Save Transaction
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      <style>{adminStyles}</style>
     </div>
   );
 }
 
+// =====================================================
+// STUDENT CARD
+// =====================================================
 
-/* =========================================================
-   DOWNLOAD SECTION
-========================================================= */
+function StudentAdminCard({
+  student,
+  onTransaction,
+  onDelete,
+}) {
+  return (
+    <div className="modern-student-card">
+      <div className="student-card-top">
+        <div className="student-avatar">
+          {String(student.name || "S")
+            .charAt(0)
+            .toUpperCase()}
+        </div>
+
+        <div className="student-card-info">
+          <h3>{student.name}</h3>
+
+          <span>{student.adNo}</span>
+        </div>
+
+        <div className="class-pill">
+          {student.className}
+        </div>
+      </div>
+
+      <div className="student-balance">
+        <span>Current Balance</span>
+
+        <strong>
+          {Number(
+            student.balance || 0
+          ).toLocaleString("en-IN")}
+        </strong>
+      </div>
+
+      <div className="student-card-actions">
+        <button
+          className="transaction-button"
+          onClick={onTransaction}
+        >
+          <Wallet size={16} />
+          Transaction
+        </button>
+
+        <button
+          className="icon-delete"
+          onClick={onDelete}
+          title="Delete student"
+        >
+          <Trash2 size={17} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
+// MODAL
+// =====================================================
+
+function Modal({
+  title,
+  icon,
+  children,
+  onClose,
+}) {
+  return (
+    <div
+      className="modal-overlay"
+      onMouseDown={(event) => {
+        if (
+          event.target === event.currentTarget
+        ) {
+          onClose();
+        }
+      }}
+    >
+      <div className="modern-modal">
+        <div className="modal-header">
+          <div className="modal-title">
+            <div className="modal-title-icon">
+              {icon}
+            </div>
+
+            <h2>{title}</h2>
+          </div>
+
+          <button
+            className="modal-close"
+            onClick={onClose}
+          >
+            <X size={19} />
+          </button>
+        </div>
+
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
+// DOWNLOAD SECTION
+// =====================================================
 
 function DownloadSection({
   students,
   payments,
-  downloadStudentPDF,
-  downloadStudentCSV,
-  downloadClassPDF,
-  downloadClassCSV,
-  downloadDetailedExcel,
+  classes,
+  onDetailedExcel,
 }) {
-  const [search, setSearch] =
+  const [studentSearch, setStudentSearch] =
     useState("");
 
+  const filteredStudents = students.filter(
+    (student) => {
+      const query =
+        studentSearch.trim().toLowerCase();
 
-  const filteredStudents =
-    students.filter((student) => {
-      const text =
-        search
-          .toLowerCase()
-          .trim();
-
-      if (!text) return true;
+      if (!query) return true;
 
       return (
-        student.name
-          ?.toLowerCase()
-          .includes(text) ||
-
-        student.adNo
-          ?.toLowerCase()
-          .includes(text) ||
-
-        student.className
-          ?.toLowerCase()
-          .includes(text)
+        String(student.name || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(student.adNo || "")
+          .toLowerCase()
+          .includes(query) ||
+        String(student.className || "")
+          .toLowerCase()
+          .includes(query)
       );
-    });
-
-
-  const classes = [
-    ...new Set(
-      students
-        .map(
-          (student) =>
-            student.className?.trim()
-        )
-        .filter(Boolean)
-    ),
-  ].sort();
-
+    }
+  );
 
   return (
     <div className="download-page">
-
       {/* HEADER */}
 
-      <div className="download-heading">
-
-        <span>
-          REPORT CENTER
-        </span>
-
-        <h1>
-          Downloads
-        </h1>
-
-        <p>
-          Download class, student and
-          detailed account reports.
-        </p>
-
-      </div>
-
-
-      {/* CLASS REPORTS */}
-
-      <section className="download-panel">
-
-        <div className="download-panel-heading">
-
-          <div>
-
-            <span>
-              CLASS REPORTS
-            </span>
-
-            <h2>
-              Class Balance Sheets
-            </h2>
-
+      <div className="download-page-header">
+        <div>
+          <div className="admin-eyebrow">
+            REPORT CENTRE
           </div>
 
+          <h1>Downloads</h1>
+
+          <p>
+            Export class and student account
+            reports.
+          </p>
         </div>
 
-
-        {classes.length === 0 ? (
-
-          <div className="download-empty">
-            No classes found.
-          </div>
-
-        ) : (
-
-          <div className="class-download-grid">
-
-            {classes.map(
-              (className) => {
-
-                const classStudents =
-                  students.filter(
-                    (student) =>
-                      student.className
-                        ?.trim()
-                        .toLowerCase() ===
-                      className
-                        .trim()
-                        .toLowerCase()
-                  );
-
-
-                const balance =
-                  classStudents.reduce(
-                    (
-                      total,
-                      student
-                    ) =>
-                      total +
-                      Number(
-                        student.balance ||
-                          0
-                      ),
-                    0
-                  );
-
-
-                return (
-                  <div
-                    className="class-download-card"
-                    key={className}
-                  >
-
-                    <div className="class-download-top">
-
-                      <div className="class-badge">
-                        {className}
-                      </div>
-
-                      <div>
-
-                        <strong>
-                          {className}
-                        </strong>
-
-                        <span>
-                          {
-                            classStudents.length
-                          }{" "}
-                          students
-                        </span>
-
-                      </div>
-
-                    </div>
-
-
-                    <div className="class-total">
-
-                      <small>
-                        TOTAL BALANCE
-                      </small>
-
-                      <strong>
-                        {balance.toLocaleString(
-                          "en-IN"
-                        )}
-                      </strong>
-
-                    </div>
-
-
-                    <div className="download-buttons">
-
-                      <button
-                        onClick={() =>
-                          downloadClassPDF(
-                            className
-                          )
-                        }
-                      >
-                        PDF
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          downloadClassCSV(
-                            className
-                          )
-                        }
-                      >
-                        CSV
-                      </button>
-
-                    </div>
-
-                  </div>
-                );
-              }
-            )}
-
-          </div>
-
-        )}
-
-      </section>
-
+        <div className="download-header-icon">
+          <Download size={25} />
+        </div>
+      </div>
 
       {/* DETAILED EXCEL */}
 
-      <section className="download-panel detailed-excel-panel">
-
-        <div className="detailed-excel-content">
-
-          <div className="detailed-excel-icon">
-            📊
-          </div>
-
-          <div className="detailed-excel-info">
-
-            <span>
-              COMPLETE ACCOUNT REPORT
-            </span>
-
-            <h2>
-              Detailed Excel
-            </h2>
+      <section className="download-section">
+        <div className="download-section-heading">
+          <div>
+            <h2>Detailed Excel</h2>
 
             <p>
-              Every student, transaction,
-              reason, added, deducted and
-              balance in separate student tabs.
+              Each class downloads as a
+              separate Excel file.
             </p>
-
           </div>
 
-          <button
-            className="detailed-excel-button"
-            onClick={
-              downloadDetailedExcel
-            }
-          >
-            ↓ Excel
-          </button>
-
+          <FileSpreadsheet size={21} />
         </div>
 
+        <div className="class-excel-grid">
+          {classes.map((className) => {
+            const count = students.filter(
+              (student) =>
+                String(
+                  student.className || ""
+                ).toLowerCase() ===
+                String(className).toLowerCase()
+            ).length;
+
+            return (
+              <div
+                className="class-excel-card"
+                key={className}
+              >
+                <div className="class-excel-icon">
+                  <GraduationCap size={21} />
+                </div>
+
+                <div className="class-excel-info">
+                  <strong>{className}</strong>
+
+                  <span>
+                    {count} student
+                    {count !== 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                <button
+                  className="excel-download-button"
+                  onClick={() =>
+                    onDetailedExcel(className)
+                  }
+                  title={`Download ${className} Excel`}
+                >
+                  <Download size={17} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
+      {/* CLASS REPORTS */}
 
-      {/* INDIVIDUAL REPORTS */}
-
-      <section className="download-panel">
-
-        <div className="download-panel-heading">
-
+      <section className="download-section">
+        <div className="download-section-heading">
           <div>
+            <h2>Class Reports</h2>
 
-            <span>
-              STUDENT REPORTS
-            </span>
-
-            <h2>
-              Individual Accounts
-            </h2>
-
+            <p>
+              Download class balance reports.
+            </p>
           </div>
 
+          <FileText size={21} />
         </div>
 
+        <div className="report-list">
+          {classes.map((className) => (
+            <div
+              className="report-row"
+              key={className}
+            >
+              <div className="report-row-info">
+                <div className="report-icon">
+                  <GraduationCap size={18} />
+                </div>
+
+                <div>
+                  <strong>{className}</strong>
+
+                  <span>
+                    Class balance report
+                  </span>
+                </div>
+              </div>
+
+              <div className="report-actions">
+                <button
+                  onClick={() =>
+                    exportClassBalancePDF(
+                      className,
+                      students,
+                      payments
+                    )
+                  }
+                  className="small-report-button"
+                >
+                  <FileText size={15} />
+                  PDF
+                </button>
+
+                <button
+                  onClick={() =>
+                    exportClassCSV(
+                      className,
+                      students,
+                      payments
+                    )
+                  }
+                  className="small-report-button"
+                >
+                  <FileSpreadsheet size={15} />
+                  CSV
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* STUDENT STATEMENTS */}
+
+      <section className="download-section">
+        <div className="download-section-heading">
+          <div>
+            <h2>Student Statements</h2>
+
+            <p>
+              Download individual account
+              statements.
+            </p>
+          </div>
+
+          <Users size={21} />
+        </div>
 
         <div className="download-search">
-
-          <span>
-            ⌕
-          </span>
+          <Search size={17} />
 
           <input
-            placeholder="Search student, admission no or class..."
-            value={search}
-            onChange={(e) =>
-              setSearch(
-                e.target.value
+            value={studentSearch}
+            onChange={(event) =>
+              setStudentSearch(
+                event.target.value
               )
             }
+            placeholder="Search students..."
           />
-
         </div>
 
+        <div className="student-download-list">
+          {filteredStudents.map((student) => {
+            const transactions = payments
+              .filter(
+                (payment) =>
+                  payment.studentId ===
+                  student.id
+              )
+              .sort(
+                (a, b) =>
+                  getPaymentTime(a) -
+                  getPaymentTime(b)
+              );
 
-        <div className="individual-download-list">
-
-          {filteredStudents.length === 0 ? (
-
-            <div className="download-empty">
-              No students found.
-            </div>
-
-          ) : (
-
-            filteredStudents.map(
-              (student) => {
-
-                const transactionCount =
-                  payments.filter(
-                    (payment) =>
-                      payment.studentId ===
-                      student.id
-                  ).length;
-
-
-                return (
-                  <div
-                    className="individual-download-card"
-                    key={student.id}
-                  >
-
-                    <div className="download-student-avatar">
-
-                      {student.name
-                        ?.charAt(0)
-                        ?.toUpperCase()}
-
-                    </div>
-
-
-                    <div className="individual-student-info">
-
-                      <strong>
-                        {student.name}
-                      </strong>
-
-                      <span>
-                        {student.adNo}
-                        {" • "}
-                        {student.className ||
-                          "No Class"}
-                      </span>
-
-                    </div>
-
-
-                    <div className="individual-balance">
-
-                      <small>
-                        BALANCE
-                      </small>
-
-                      <strong>
-                        {Number(
-                          student.balance ||
-                            0
-                        ).toLocaleString(
-                          "en-IN"
-                        )}
-                      </strong>
-
-                    </div>
-
-
-                    <div className="individual-transactions">
-
-                      <small>
-                        TRANSACTIONS
-                      </small>
-
-                      <strong>
-                        {transactionCount}
-                      </strong>
-
-                    </div>
-
-
-                    <div className="individual-download-buttons">
-
-                      <button
-                        onClick={() =>
-                          downloadStudentPDF(
-                            student
-                          )
-                        }
-                      >
-                        PDF
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          downloadStudentCSV(
-                            student
-                          )
-                        }
-                      >
-                        CSV
-                      </button>
-
-                    </div>
-
+            return (
+              <div
+                className="report-row"
+                key={student.id}
+              >
+                <div className="report-row-info">
+                  <div className="student-list-avatar">
+                    {String(
+                      student.name || "S"
+                    )
+                      .charAt(0)
+                      .toUpperCase()}
                   </div>
-                );
-              }
-            )
 
-          )}
+                  <div>
+                    <strong>
+                      {student.name}
+                    </strong>
 
+                    <span>
+                      {student.adNo} ·{" "}
+                      {student.className}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="report-actions">
+                  <button
+                    onClick={() =>
+                      exportStudentBalancePDF(
+                        student,
+                        transactions
+                      )
+                    }
+                    className="small-report-button"
+                  >
+                    <FileText size={15} />
+                    PDF
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      exportStudentTransactionsCSV(
+                        student,
+                        transactions
+                      )
+                    }
+                    className="small-report-button"
+                  >
+                    <FileSpreadsheet size={15} />
+                    CSV
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
-
       </section>
-
-
-      {/* DOWNLOAD PAGE STYLES */}
-
-      <style>{`
-
-        .download-page {
-          max-width: 1200px;
-          margin: 0 auto;
-          width: 100%;
-        }
-
-        .download-heading {
-          margin-bottom: 20px;
-        }
-
-        .download-heading > span,
-        .download-panel-heading span,
-        .detailed-excel-info > span {
-          color: #07956d;
-          font-size: 9px;
-          font-weight: 800;
-          letter-spacing: 1.6px;
-        }
-
-        .download-heading h1 {
-          margin: 6px 0;
-          color: #063b46;
-          font-size: 32px;
-        }
-
-        .download-heading p {
-          margin: 0;
-          color: #8b9b9e;
-          font-size: 13px;
-        }
-
-        .download-panel {
-          padding: 18px;
-          margin-bottom: 14px;
-          background: white;
-          border: 1px solid #e4eeeb;
-          border-radius: 18px;
-          box-shadow:
-            0 10px 30px rgba(6, 59, 70, .04);
-        }
-
-        .download-panel-heading {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 14px;
-        }
-
-        .download-panel-heading h2 {
-          margin: 5px 0 0;
-          color: #063b46;
-          font-size: 17px;
-        }
-
-        .class-download-grid {
-          display: grid;
-          grid-template-columns:
-            repeat(4, minmax(0, 1fr));
-          gap: 9px;
-        }
-
-        .class-download-card {
-          padding: 12px;
-          border: 1px solid #e6efed;
-          border-radius: 13px;
-          background: #fbfdfc;
-          transition:
-            transform .2s,
-            box-shadow .2s;
-        }
-
-        .class-download-card:hover {
-          transform: translateY(-2px);
-          box-shadow:
-            0 8px 18px rgba(6, 59, 70, .06);
-        }
-
-        .class-download-top {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .class-badge {
-          width: 36px;
-          height: 36px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 10px;
-          background: #e4f7ef;
-          color: #07956d;
-          font-size: 11px;
-          font-weight: 800;
-        }
-
-        .class-download-top strong {
-          display: block;
-          color: #063b46;
-          font-size: 12px;
-        }
-
-        .class-download-top span {
-          display: block;
-          margin-top: 2px;
-          color: #95a5a7;
-          font-size: 8px;
-        }
-
-        .class-total {
-          margin: 9px 0;
-          padding: 8px;
-          border-radius: 9px;
-          background: #f1f8f5;
-        }
-
-        .class-total small {
-          display: block;
-          color: #91a1a4;
-          font-size: 7px;
-          letter-spacing: 1px;
-        }
-
-        .class-total strong {
-          display: block;
-          margin-top: 2px;
-          color: #063b46;
-          font-size: 17px;
-        }
-
-        .download-buttons {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 5px;
-        }
-
-        .download-buttons button,
-        .individual-download-buttons button {
-          border: 1px solid #dce9e5;
-          background: white;
-          color: #063b46;
-          padding: 7px;
-          border-radius: 8px;
-          cursor: pointer;
-          font-size: 9px;
-          font-weight: 800;
-          transition: all .2s;
-        }
-
-        .download-buttons button:hover,
-        .individual-download-buttons button:hover {
-          background: #063b46;
-          color: white;
-          border-color: #063b46;
-          transform: translateY(-1px);
-        }
-
-        /* DETAILED EXCEL */
-
-        .detailed-excel-panel {
-          padding: 11px 13px;
-        }
-
-        .detailed-excel-content {
-          display: flex;
-          align-items: center;
-          gap: 11px;
-        }
-
-        .detailed-excel-icon {
-          width: 36px;
-          height: 36px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 9px;
-          background: #e5f7ef;
-          font-size: 16px;
-        }
-
-        .detailed-excel-info {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .detailed-excel-info h2 {
-          margin: 2px 0 0;
-          color: #063b46;
-          font-size: 14px;
-        }
-
-        .detailed-excel-info p {
-          margin: 2px 0 0;
-          color: #91a1a4;
-          font-size: 8px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .detailed-excel-button {
-          flex-shrink: 0;
-          border: 0;
-          border-radius: 8px;
-          padding: 9px 13px;
-          background: #07956d;
-          color: white;
-          cursor: pointer;
-          font-size: 9px;
-          font-weight: 800;
-          transition: .2s;
-        }
-
-        .detailed-excel-button:hover {
-          transform: translateY(-1px);
-          box-shadow:
-            0 6px 14px rgba(7, 149, 109, .18);
-        }
-
-        .download-search {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 0 11px;
-          margin-bottom: 10px;
-          border: 1px solid #e2ece9;
-          border-radius: 10px;
-          background: #fbfdfc;
-        }
-
-        .download-search span {
-          color: #07956d;
-          font-size: 18px;
-        }
-
-        .download-search input {
-          flex: 1;
-          min-width: 0;
-          border: 0;
-          outline: 0;
-          padding: 10px 0;
-          background: transparent;
-          font-size: 10px;
-        }
-
-        .individual-download-list {
-          display: grid;
-          gap: 6px;
-        }
-
-        .individual-download-card {
-          display: flex;
-          align-items: center;
-          gap: 9px;
-          padding: 9px;
-          border: 1px solid #e7efed;
-          border-radius: 11px;
-          background: #fbfdfc;
-          transition:
-            transform .2s,
-            box-shadow .2s;
-        }
-
-        .individual-download-card:hover {
-          transform: translateX(2px);
-          box-shadow:
-            0 6px 15px rgba(6, 59, 70, .05);
-        }
-
-        .download-student-avatar {
-          width: 33px;
-          height: 33px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 9px;
-          background: #e4f7ef;
-          color: #07956d;
-          font-weight: 800;
-          font-size: 11px;
-        }
-
-        .individual-student-info {
-          flex: 1;
-          min-width: 140px;
-        }
-
-        .individual-student-info strong {
-          display: block;
-          color: #063b46;
-          font-size: 11px;
-        }
-
-        .individual-student-info span {
-          display: block;
-          margin-top: 2px;
-          color: #96a5a7;
-          font-size: 7px;
-        }
-
-        .individual-balance,
-        .individual-transactions {
-          min-width: 75px;
-        }
-
-        .individual-balance small,
-        .individual-transactions small {
-          display: block;
-          color: #9aa8aa;
-          font-size: 6px;
-          letter-spacing: .8px;
-        }
-
-        .individual-balance strong,
-        .individual-transactions strong {
-          display: block;
-          margin-top: 2px;
-          color: #063b46;
-          font-size: 11px;
-        }
-
-        .individual-download-buttons {
-          display: flex;
-          gap: 4px;
-        }
-
-        .download-empty {
-          padding: 35px;
-          text-align: center;
-          color: #96a5a7;
-          font-size: 10px;
-        }
-
-        @media (max-width: 1000px) {
-          .class-download-grid {
-            grid-template-columns:
-              repeat(2, minmax(0, 1fr));
-          }
-        }
-
-        @media (max-width: 600px) {
-          .download-heading {
-            margin-bottom: 14px;
-          }
-
-          .download-heading h1 {
-            font-size: 24px;
-          }
-
-          .download-heading p {
-            font-size: 11px;
-          }
-
-          .download-panel {
-            padding: 12px;
-            margin-bottom: 10px;
-            border-radius: 14px;
-          }
-
-          .download-panel-heading {
-            margin-bottom: 10px;
-          }
-
-          .download-panel-heading h2 {
-            font-size: 15px;
-          }
-
-          .class-download-grid {
-            grid-template-columns: 1fr 1fr;
-          }
-
-          .class-download-card {
-            padding: 9px;
-          }
-
-          .class-badge {
-            width: 31px;
-            height: 31px;
-            font-size: 9px;
-          }
-
-          .class-total {
-            margin: 7px 0;
-            padding: 7px;
-          }
-
-          .class-total strong {
-            font-size: 15px;
-          }
-
-          .detailed-excel-panel {
-            padding: 9px;
-          }
-
-          .detailed-excel-content {
-            gap: 8px;
-          }
-
-          .detailed-excel-icon {
-            width: 31px;
-            height: 31px;
-            font-size: 14px;
-          }
-
-          .detailed-excel-info h2 {
-            font-size: 12px;
-          }
-
-          .detailed-excel-info p {
-            font-size: 7px;
-          }
-
-          .detailed-excel-button {
-            padding: 8px 10px;
-            font-size: 8px;
-          }
-
-          .individual-download-card {
-            padding: 8px;
-            gap: 7px;
-            flex-wrap: wrap;
-          }
-
-          .download-student-avatar {
-            width: 30px;
-            height: 30px;
-          }
-
-          .individual-student-info {
-            min-width:
-              calc(100% - 42px);
-          }
-
-          .individual-balance,
-          .individual-transactions {
-            min-width: 65px;
-          }
-
-          .individual-download-buttons {
-            width: 100%;
-          }
-
-          .individual-download-buttons button {
-            flex: 1;
-          }
-        }
-
-      `}</style>
-
     </div>
   );
 }
 
-
-/* =========================================================
-   PAYMENT DATE HELPER
-========================================================= */
+// =====================================================
+// PAYMENT DATE
+// =====================================================
 
 function getPaymentTime(payment) {
-
-  if (
-    payment.createdAt?.toMillis
-  ) {
+  if (payment.createdAt?.toMillis) {
     return payment.createdAt.toMillis();
   }
 
-
-  if (
-    payment.createdAt?.seconds
-  ) {
-    return (
-      payment.createdAt.seconds *
-      1000
-    );
+  if (payment.createdAt?.seconds) {
+    return payment.createdAt.seconds * 1000;
   }
 
-
-  if (
-    payment.date?.seconds
-  ) {
-    return (
-      payment.date.seconds *
-      1000
-    );
+  if (payment.date?.seconds) {
+    return payment.date.seconds * 1000;
   }
 
+  const time = new Date(
+    payment.date || 0
+  ).getTime();
 
-  const time =
-    new Date(
-      payment.date || 0
-    ).getTime();
-
-
-  return Number.isNaN(time)
-    ? 0
-    : time;
+  return Number.isNaN(time) ? 0 : time;
 }
+
+// =====================================================
+// STYLES
+// =====================================================
+
+const adminStyles = `
+.admin-dashboard,
+.download-page {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.admin-topbar,
+.download-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 26px;
+}
+
+.admin-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .13em;
+  color: #0f766e;
+  margin-bottom: 5px;
+}
+
+.admin-topbar h1,
+.download-page-header h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.15;
+  color: #102a32;
+  letter-spacing: -.03em;
+}
+
+.admin-topbar p,
+.download-page-header p {
+  margin: 7px 0 0;
+  color: #71818a;
+  font-size: 14px;
+}
+
+.primary-action {
+  border: 0;
+  background: #087f73;
+  color: white;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: .2s ease;
+  box-shadow: 0 7px 18px rgba(8,127,115,.16);
+}
+
+.primary-action:hover {
+  background: #066b61;
+  transform: translateY(-1px);
+}
+
+.full-width {
+  width: 100%;
+}
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.admin-stat-card {
+  background: white;
+  border: 1px solid #e4ecee;
+  border-radius: 15px;
+  padding: 17px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  box-shadow: 0 5px 20px rgba(18,49,57,.045);
+}
+
+.stat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #087f73;
+  background: #e9f7f4;
+}
+
+.balance-icon {
+  color: #136c50;
+  background: #eaf7ef;
+}
+
+.admin-stat-card span {
+  display: block;
+  color: #809097;
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+
+.admin-stat-card strong {
+  display: block;
+  color: #18343c;
+  font-size: 20px;
+}
+
+.admin-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.modern-search,
+.download-search {
+  height: 44px;
+  background: white;
+  border: 1px solid #dce6e8;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 13px;
+  color: #8a999f;
+}
+
+.modern-search {
+  flex: 1;
+}
+
+.modern-search input,
+.download-search input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  width: 100%;
+  color: #243c43;
+  font-size: 13px;
+}
+
+.clear-search {
+  border: 0;
+  background: transparent;
+  color: #8b9a9f;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.refresh-button {
+  height: 44px;
+  border: 1px solid #dce6e8;
+  background: white;
+  border-radius: 11px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #40565d;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.student-grid {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 14px;
+}
+
+.modern-student-card {
+  background: white;
+  border: 1px solid #e3ebed;
+  border-radius: 16px;
+  padding: 16px;
+  transition: .2s ease;
+  box-shadow: 0 5px 18px rgba(18,49,57,.04);
+}
+
+.modern-student-card:hover {
+  transform: translateY(-2px);
+  border-color: #c7dfdc;
+  box-shadow: 0 10px 25px rgba(18,49,57,.08);
+}
+
+.student-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.student-avatar,
+.student-list-avatar,
+.student-mini-avatar {
+  flex-shrink: 0;
+  background: #e7f6f3;
+  color: #087f73;
+  font-weight: 800;
+}
+
+.student-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+}
+
+.student-card-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.student-card-info h3 {
+  margin: 0;
+  color: #19343b;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.student-card-info span {
+  display: block;
+  margin-top: 3px;
+  color: #8a989d;
+  font-size: 11px;
+}
+
+.class-pill {
+  background: #f0f7f6;
+  color: #08766d;
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.student-balance {
+  padding: 17px 0 14px;
+}
+
+.student-balance span {
+  display: block;
+  color: #8a999f;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.student-balance strong {
+  font-size: 23px;
+  color: #18343c;
+}
+
+.student-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.transaction-button {
+  flex: 1;
+  height: 37px;
+  border: 1px solid #d7e6e4;
+  background: #f4faf9;
+  color: #08776e;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.icon-delete {
+  width: 37px;
+  height: 37px;
+  border: 1px solid #f0dddd;
+  background: #fff8f8;
+  color: #bd5656;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.empty-admin {
+  min-height: 260px;
+  background: white;
+  border: 1px dashed #d7e3e5;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #8a999f;
+  gap: 7px;
+}
+
+.empty-admin h3 {
+  margin: 5px 0 0;
+  color: #40565d;
+}
+
+.empty-admin p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.spin {
+  animation: admin-spin 1s linear infinite;
+}
+
+@keyframes admin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* MODAL */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(11,32,38,.45);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.modern-modal {
+  width: 100%;
+  max-width: 460px;
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  background: white;
+  border-radius: 19px;
+  box-shadow: 0 25px 70px rgba(0,0,0,.2);
+  padding: 20px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-title h2 {
+  margin: 0;
+  font-size: 19px;
+  color: #19343b;
+}
+
+.modal-title-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: #e8f6f3;
+  color: #087f73;
+  display: grid;
+  place-items: center;
+}
+
+.modal-close {
+  border: 0;
+  background: #f3f6f7;
+  color: #65777d;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.modern-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modern-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #40565d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.modern-form input,
+.modern-form select {
+  width: 100%;
+  height: 43px;
+  box-sizing: border-box;
+  border: 1px solid #dbe5e7;
+  border-radius: 10px;
+  padding: 0 12px;
+  outline: 0;
+  background: white;
+  color: #213940;
+  font-size: 13px;
+}
+
+.modern-form input:focus,
+.modern-form select:focus {
+  border-color: #55a99f;
+  box-shadow: 0 0 0 3px rgba(8,127,115,.08);
+}
+
+.transaction-student {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f5faf9;
+  border: 1px solid #e0eeec;
+  border-radius: 12px;
+  padding: 11px;
+  margin-bottom: 16px;
+}
+
+.student-mini-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+}
+
+.transaction-student > div:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+
+.transaction-student strong {
+  display: block;
+  color: #203b42;
+  font-size: 13px;
+}
+
+.transaction-student span {
+  display: block;
+  color: #87969b;
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+.transaction-current {
+  font-weight: 800;
+  color: #08776e;
+  font-size: 14px;
+}
+
+.transaction-type {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.transaction-type button {
+  height: 42px;
+  border: 1px solid #dce6e8;
+  border-radius: 10px;
+  background: white;
+  color: #66777d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.transaction-type button.active.add {
+  color: #08776e;
+  background: #eaf8f4;
+  border-color: #a8dcd4;
+}
+
+.transaction-type button.active.deduct {
+  color: #b25454;
+  background: #fff2f2;
+  border-color: #efc2c2;
+}
+
+/* DOWNLOADS */
+
+.download-header-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #e8f6f3;
+  color: #087f73;
+  display: grid;
+  place-items: center;
+}
+
+.download-section {
+  background: white;
+  border: 1px solid #e2eaec;
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 5px 20px rgba(18,49,57,.035);
+}
+
+.download-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  color: #087f73;
+  margin-bottom: 15px;
+}
+
+.download-section-heading h2 {
+  margin: 0;
+  color: #19343b;
+  font-size: 16px;
+}
+
+.download-section-heading p {
+  margin: 4px 0 0;
+  color: #89979c;
+  font-size: 12px;
+}
+
+.class-excel-grid {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 10px;
+}
+
+.class-excel-card {
+  border: 1px solid #e1eaea;
+  background: #fbfdfd;
+  border-radius: 13px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  transition: .2s ease;
+}
+
+.class-excel-card:hover {
+  border-color: #b8d9d5;
+  transform: translateY(-1px);
+}
+
+.class-excel-icon {
+  width: 37px;
+  height: 37px;
+  border-radius: 10px;
+  background: #e8f6f3;
+  color: #087f73;
+  display: grid;
+  place-items: center;
+}
+
+.class-excel-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.class-excel-info strong {
+  display: block;
+  color: #203b42;
+  font-size: 13px;
+}
+
+.class-excel-info span {
+  display: block;
+  color: #8a999f;
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.excel-download-button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 9px;
+  background: #087f73;
+  color: white;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.report-list,
+.student-download-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.report-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid #edf1f2;
+}
+
+.report-row:last-child {
+  border-bottom: 0;
+}
+
+.report-row-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.report-icon,
+.student-list-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.report-icon {
+  background: #f0f7f6;
+  color: #087f73;
+}
+
+.student-list-avatar {
+  background: #e7f6f3;
+  color: #087f73;
+  font-weight: 800;
+}
+
+.report-row-info strong {
+  display: block;
+  color: #274149;
+  font-size: 12px;
+}
+
+.report-row-info span {
+  display: block;
+  color: #8c999e;
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.report-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.small-report-button {
+  height: 32px;
+  border: 1px solid #dbe6e7;
+  background: white;
+  border-radius: 8px;
+  padding: 0 9px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #496168;
+  font-size: 10px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.small-report-button:hover {
+  border-color: #9ccdc7;
+  color: #08776e;
+  background: #f5faf9;
+}
+
+.download-search {
+  margin-bottom: 9px;
+}
+
+@media (max-width: 1050px) {
+  .student-grid {
+    grid-template-columns: repeat(2,1fr);
+  }
+
+  .class-excel-grid {
+    grid-template-columns: repeat(2,1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-topbar,
+  .download-page-header {
+    align-items: flex-start;
+  }
+
+  .admin-topbar h1,
+  .download-page-header h1 {
+    font-size: 23px;
+  }
+
+  .admin-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .student-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .class-excel-grid {
+    grid-template-columns: repeat(2,1fr);
+  }
+
+  .admin-toolbar {
+    flex-direction: column;
+  }
+
+  .refresh-button {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-topbar,
+  .download-page-header {
+    flex-direction: column;
+  }
+
+  .primary-action {
+    width: 100%;
+  }
+
+  .class-excel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .report-actions {
+    width: 100%;
+  }
+
+  .small-report-button {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .modern-modal {
+    padding: 16px;
+  }
+}
+`;
