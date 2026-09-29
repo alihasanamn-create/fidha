@@ -1,4 +1,11 @@
 import { motion } from "framer-motion";
+import {
+  BarChart3,
+  GraduationCap,
+  Download,
+  UsersRound,
+  LogOut,
+} from "lucide-react";
 
 export default function Sidebar({
   setMode,
@@ -9,43 +16,44 @@ export default function Sidebar({
     {
       key: "admin",
       label: "Dashboard",
-      icon: "📊",
+      icon: BarChart3,
     },
     {
       key: "s1",
       label: "S1",
-      icon: "🎓",
+      icon: GraduationCap,
     },
     {
       key: "s2",
       label: "S2",
-      icon: "🎓",
+      icon: GraduationCap,
     },
     {
       key: "s3",
       label: "S3",
-      icon: "🎓",
+      icon: GraduationCap,
     },
     {
       key: "s4",
       label: "S4",
-      icon: "🎓",
+      icon: GraduationCap,
     },
     {
       key: "downloads",
       label: "Downloads",
-      icon: "📥",
+      icon: Download,
     },
     {
       key: "parent",
       label: "Parent View",
-      icon: "👨‍👩‍👧",
+      icon: UsersRound,
     },
   ];
 
   return (
     <aside className="app-sidebar">
-      {/* Brand */}
+      {/* BRAND */}
+
       <div className="sidebar-brand">
         <div className="brand-logo">
           F
@@ -57,47 +65,72 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* Menu */}
-      <nav className="sidebar-menu">
-        {menuItems.map((item) => (
-          <motion.button
-            key={item.key}
-            whileHover={{ x: 4 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => setMode(item.key)}
-            className={`sidebar-item ${
-              activeMode === item.key ? "active" : ""
-            }`}
-          >
-            <span className="sidebar-icon">
-              {item.icon}
-            </span>
+      {/* MENU */}
 
-            <span>{item.label}</span>
-          </motion.button>
-        ))}
+      <nav className="sidebar-menu">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+
+          const isActive =
+            activeMode === item.key ||
+            (
+              item.key === "admin" &&
+              !activeMode
+            );
+
+          return (
+            <motion.button
+              key={item.key}
+              whileHover={{ x: 4 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() =>
+                setMode(item.key)
+              }
+              className={`sidebar-item ${
+                isActive ? "active" : ""
+              }`}
+            >
+              <span className="sidebar-icon">
+                <Icon size={19} strokeWidth={2} />
+              </span>
+
+              <span>{item.label}</span>
+            </motion.button>
+          );
+        })}
       </nav>
 
-      {/* User */}
+      {/* USER */}
+
       <div className="sidebar-user">
         <div className="user-avatar">
           A
         </div>
 
         <div>
-          <strong>Administrator</strong>
-          <span>SMAC Accounts</span>
+          <strong>
+            Administrator
+          </strong>
+
+          <span>
+            SMAC Accounts
+          </span>
         </div>
       </div>
 
-      {/* Logout */}
+      {/* LOGOUT */}
+
       <motion.button
         whileHover={{ x: 4 }}
         whileTap={{ scale: 0.97 }}
         onClick={onLogout}
         className="sidebar-logout"
       >
-        <span>🚪</span>
+        <LogOut
+          size={18}
+          strokeWidth={2}
+        />
+
         <span>Logout</span>
       </motion.button>
     </aside>

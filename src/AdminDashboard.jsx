@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   addDoc,
@@ -43,11 +47,17 @@ export default function AdminDashboard({
   classFilter = "",
   downloadMode = false,
 }) {
-  const [students, setStudents] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [students, setStudents] =
+    useState([]);
 
-  const [search, setSearch] = useState("");
+  const [payments, setPayments] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [search, setSearch] =
+    useState("");
 
   const [showAddStudent, setShowAddStudent] =
     useState(false);
@@ -77,23 +87,28 @@ export default function AdminDashboard({
     useState("");
 
   // =====================================================
-  // LOAD STUDENTS
+  // STUDENTS
   // =====================================================
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
       collection(db, "students"),
       (snapshot) => {
-        const list = snapshot.docs.map((item) => ({
-          id: item.id,
-          ...item.data(),
-        }));
+        const list =
+          snapshot.docs.map((item) => ({
+            id: item.id,
+            ...item.data(),
+          }));
 
         setStudents(list);
         setLoading(false);
       },
       (error) => {
-        console.error("Student loading error:", error);
+        console.error(
+          "Student loading error:",
+          error
+        );
+
         setLoading(false);
       }
     );
@@ -102,23 +117,28 @@ export default function AdminDashboard({
   }, []);
 
   // =====================================================
-  // LOAD PAYMENTS
+  // PAYMENTS
   // =====================================================
 
   async function loadPayments() {
     try {
-      const snapshot = await getDocs(
-        collection(db, "payments")
-      );
+      const snapshot =
+        await getDocs(
+          collection(db, "payments")
+        );
 
-      const list = snapshot.docs.map((item) => ({
-        id: item.id,
-        ...item.data(),
-      }));
+      const list =
+        snapshot.docs.map((item) => ({
+          id: item.id,
+          ...item.data(),
+        }));
 
       setPayments(list);
     } catch (error) {
-      console.error("Payment loading error:", error);
+      console.error(
+        "Payment loading error:",
+        error
+      );
     }
   }
 
@@ -127,93 +147,143 @@ export default function AdminDashboard({
   }, []);
 
   // =====================================================
-  // FILTER STUDENTS
+  // FILTER
   // =====================================================
 
-  const filteredStudents = useMemo(() => {
-    const query = search.trim().toLowerCase();
+  const filteredStudents =
+    useMemo(() => {
+      const query =
+        search.trim().toLowerCase();
 
-    return students.filter((student) => {
-      const matchesClass =
-        !classFilter ||
-        String(student.className || "").toLowerCase() ===
-          String(classFilter).toLowerCase();
+      return students.filter(
+        (student) => {
+          const matchesClass =
+            !classFilter ||
+            String(
+              student.className || ""
+            ).toLowerCase() ===
+              String(
+                classFilter
+              ).toLowerCase();
 
-      const matchesSearch =
-        !query ||
-        String(student.name || "")
-          .toLowerCase()
-          .includes(query) ||
-        String(student.adNo || "")
-          .toLowerCase()
-          .includes(query) ||
-        String(student.className || "")
-          .toLowerCase()
-          .includes(query);
+          const matchesSearch =
+            !query ||
+            String(
+              student.name || ""
+            )
+              .toLowerCase()
+              .includes(query) ||
+            String(
+              student.adNo || ""
+            )
+              .toLowerCase()
+              .includes(query) ||
+            String(
+              student.className || ""
+            )
+              .toLowerCase()
+              .includes(query);
 
-      return matchesClass && matchesSearch;
-    });
-  }, [students, classFilter, search]);
+          return (
+            matchesClass &&
+            matchesSearch
+          );
+        }
+      );
+    }, [
+      students,
+      classFilter,
+      search,
+    ]);
 
   // =====================================================
   // TOTAL BALANCE
   // =====================================================
 
-  const totalBalance = useMemo(() => {
-    return filteredStudents.reduce(
-      (total, student) =>
-        total + Number(student.balance || 0),
-      0
-    );
-  }, [filteredStudents]);
+  const totalBalance =
+    useMemo(() => {
+      return filteredStudents.reduce(
+        (total, student) =>
+          total +
+          Number(
+            student.balance || 0
+          ),
+        0
+      );
+    }, [filteredStudents]);
 
   // =====================================================
   // CLASSES
   // =====================================================
 
-  const classes = useMemo(() => {
-    const found = new Set();
+  const classes =
+    useMemo(() => {
+      const found = new Set();
 
-    students.forEach((student) => {
-      if (student.className) {
-        found.add(
-          String(student.className).toUpperCase()
-        );
-      }
-    });
+      students.forEach(
+        (student) => {
+          if (student.className) {
+            found.add(
+              String(
+                student.className
+              ).toUpperCase()
+            );
+          }
+        }
+      );
 
-    ["S1", "S2", "S3", "S4"].forEach((item) =>
-      found.add(item)
-    );
+      ["S1", "S2", "S3", "S4"].forEach(
+        (item) => found.add(item)
+      );
 
-    return [...found].sort();
-  }, [students]);
+      return [...found].sort();
+    }, [students]);
 
   // =====================================================
   // ADD STUDENT
   // =====================================================
 
-  async function handleAddStudent(event) {
+  async function handleAddStudent(
+    event
+  ) {
     event.preventDefault();
 
     if (!studentName.trim()) {
-      alert("Please enter student name.");
+      alert(
+        "Please enter student name."
+      );
       return;
     }
 
     if (!studentAdNo.trim()) {
-      alert("Please enter admission number.");
+      alert(
+        "Please enter admission number."
+      );
       return;
     }
 
     try {
-      await addDoc(collection(db, "students"), {
-        name: studentName.trim(),
-        adNo: studentAdNo.trim(),
-        className: studentClass,
-        balance: Number(studentBalance || 0),
-        password: studentAdNo.trim(),
-      });
+      await addDoc(
+        collection(db, "students"),
+        {
+          name:
+            studentName.trim(),
+
+          adNo:
+            studentAdNo.trim(),
+
+          className:
+            studentClass,
+
+          balance:
+            Number(
+              studentBalance || 0
+            ),
+
+          password:
+            studentAdNo.trim(),
+        }
+      );
 
       setStudentName("");
       setStudentAdNo("");
@@ -221,10 +291,15 @@ export default function AdminDashboard({
       setStudentBalance("");
       setShowAddStudent(false);
 
-      alert("Student added successfully.");
+      alert(
+        "Student added successfully."
+      );
     } catch (error) {
       console.error(error);
-      alert("Unable to add student.");
+
+      alert(
+        "Unable to add student."
+      );
     }
   }
 
@@ -232,24 +307,37 @@ export default function AdminDashboard({
   // DELETE STUDENT
   // =====================================================
 
-  async function handleDeleteStudent(student) {
-    const confirmed = window.confirm(
-      `Delete ${student.name}?`
-    );
+  async function handleDeleteStudent(
+    student
+  ) {
+    const confirmed =
+      window.confirm(
+        `Delete ${student.name}?`
+      );
 
     if (!confirmed) return;
 
     try {
       await deleteDoc(
-        doc(db, "students", student.id)
+        doc(
+          db,
+          "students",
+          student.id
+        )
       );
 
-      if (selectedStudent?.id === student.id) {
+      if (
+        selectedStudent?.id ===
+        student.id
+      ) {
         setSelectedStudent(null);
       }
     } catch (error) {
       console.error(error);
-      alert("Unable to delete student.");
+
+      alert(
+        "Unable to delete student."
+      );
     }
   }
 
@@ -257,26 +345,34 @@ export default function AdminDashboard({
   // TRANSACTION
   // =====================================================
 
-  async function handleTransaction(event) {
+  async function handleTransaction(
+    event
+  ) {
     event.preventDefault();
 
     if (!selectedStudent) return;
 
-    const amount = Number(transactionAmount);
+    const amount =
+      Number(transactionAmount);
 
     if (!amount || amount <= 0) {
-      alert("Enter a valid amount.");
+      alert(
+        "Enter a valid amount."
+      );
       return;
     }
 
     if (!transactionReason.trim()) {
-      alert("Enter a reason.");
+      alert(
+        "Enter a reason."
+      );
       return;
     }
 
-    const oldBalance = Number(
-      selectedStudent.balance || 0
-    );
+    const oldBalance =
+      Number(
+        selectedStudent.balance || 0
+      );
 
     const newBalance =
       transactionType === "add"
@@ -295,14 +391,27 @@ export default function AdminDashboard({
         }
       );
 
-      await addDoc(collection(db, "payments"), {
-        studentId: selectedStudent.id,
-        studentName: selectedStudent.name,
-        amount,
-        reason: transactionReason.trim(),
-        type: transactionType,
-        createdAt: new Date(),
-      });
+      await addDoc(
+        collection(db, "payments"),
+        {
+          studentId:
+            selectedStudent.id,
+
+          studentName:
+            selectedStudent.name,
+
+          amount,
+
+          reason:
+            transactionReason.trim(),
+
+          type:
+            transactionType,
+
+          createdAt:
+            new Date(),
+        }
+      );
 
       setTransactionAmount("");
       setTransactionReason("");
@@ -312,15 +421,20 @@ export default function AdminDashboard({
       await loadPayments();
     } catch (error) {
       console.error(error);
-      alert("Transaction failed.");
+
+      alert(
+        "Transaction failed."
+      );
     }
   }
 
   // =====================================================
-  // CLASS DETAILED EXCEL
+  // DETAILED EXCEL
   // =====================================================
 
-  function downloadDetailedExcel(className) {
+  function downloadDetailedExcel(
+    className
+  ) {
     exportDetailedExcelForClass(
       className,
       students,
@@ -329,361 +443,486 @@ export default function AdminDashboard({
   }
 
   // =====================================================
-  // DOWNLOAD MODE
+  // DOWNLOAD PAGE
+  // IMPORTANT:
+  // CSS IS ALSO RENDERED HERE
   // =====================================================
 
   if (downloadMode) {
     return (
-      <DownloadSection
-        students={students}
-        payments={payments}
-        classes={classes}
-        onDetailedExcel={downloadDetailedExcel}
-      />
+      <>
+        <DownloadSection
+          students={students}
+          payments={payments}
+          classes={classes}
+          onDetailedExcel={
+            downloadDetailedExcel
+          }
+        />
+
+        <style>
+          {adminStyles}
+        </style>
+      </>
     );
   }
 
   // =====================================================
-  // MAIN DASHBOARD
+  // DASHBOARD
   // =====================================================
 
   return (
-    <div className="admin-dashboard">
-      <div className="admin-topbar">
-        <div>
-          <div className="admin-eyebrow">
-            SMAC ACCOUNTS
-          </div>
+    <>
+      <div className="admin-dashboard">
 
-          <h1>
-            {classFilter
-              ? `${classFilter} Accounts`
-              : "Accounts Dashboard"}
-          </h1>
+        {/* HEADER */}
 
-          <p>
-            Manage students, balances and
-            transactions.
-          </p>
-        </div>
-
-        <button
-          className="primary-action"
-          onClick={() => setShowAddStudent(true)}
-        >
-          <Plus size={18} />
-          <span>Add Student</span>
-        </button>
-      </div>
-
-      {/* STATS */}
-
-      <div className="admin-stats">
-        <div className="admin-stat-card">
-          <div className="stat-icon">
-            <Users size={20} />
-          </div>
-
+        <div className="admin-topbar">
           <div>
-            <span>Students</span>
+            <div className="admin-eyebrow">
+              SMAC ACCOUNTS
+            </div>
 
-            <strong>
-              {filteredStudents.length}
-            </strong>
-          </div>
-        </div>
+            <h1>
+              {classFilter
+                ? `${classFilter} Accounts`
+                : "Accounts Dashboard"}
+            </h1>
 
-        <div className="admin-stat-card">
-          <div className="stat-icon balance-icon">
-            <Wallet size={20} />
-          </div>
-
-          <div>
-            <span>Total Balance</span>
-
-            <strong>
-              {totalBalance.toLocaleString("en-IN")}
-            </strong>
-          </div>
-        </div>
-
-        <div className="admin-stat-card">
-          <div className="stat-icon">
-            <GraduationCap size={20} />
+            <p>
+              Manage students, balances
+              and transactions.
+            </p>
           </div>
 
-          <div>
-            <span>Class</span>
-
-            <strong>
-              {classFilter || "All Classes"}
-            </strong>
-          </div>
-        </div>
-      </div>
-
-      {/* SEARCH */}
-
-      <div className="admin-toolbar">
-        <div className="modern-search">
-          <Search size={18} />
-
-          <input
-            value={search}
-            onChange={(event) =>
-              setSearch(event.target.value)
+          <button
+            className="primary-action"
+            onClick={() =>
+              setShowAddStudent(true)
             }
-            placeholder="Search student, admission no..."
-          />
-
-          {search && (
-            <button
-              className="clear-search"
-              onClick={() => setSearch("")}
-            >
-              <X size={15} />
-            </button>
-          )}
-        </div>
-
-        <button
-          className="refresh-button"
-          onClick={() => window.location.reload()}
-        >
-          <RefreshCw size={17} />
-          Refresh
-        </button>
-      </div>
-
-      {/* STUDENTS */}
-
-      {loading ? (
-        <div className="empty-admin">
-          <RefreshCw
-            size={25}
-            className="spin"
-          />
-
-          <span>Loading students...</span>
-        </div>
-      ) : filteredStudents.length === 0 ? (
-        <div className="empty-admin">
-          <Users size={30} />
-
-          <h3>No students found</h3>
-
-          <p>
-            Add a student or change your search.
-          </p>
-        </div>
-      ) : (
-        <div className="student-grid">
-          {filteredStudents.map((student) => (
-            <StudentAdminCard
-              key={student.id}
-              student={student}
-              onTransaction={() =>
-                setSelectedStudent(student)
-              }
-              onDelete={() =>
-                handleDeleteStudent(student)
-              }
-            />
-          ))}
-        </div>
-      )}
-
-      {/* ADD STUDENT */}
-
-      {showAddStudent && (
-        <Modal
-          title="Add Student"
-          icon={<Plus size={20} />}
-          onClose={() => setShowAddStudent(false)}
-        >
-          <form
-            onSubmit={handleAddStudent}
-            className="modern-form"
           >
-            <label>
-              Student Name
-
-              <input
-                value={studentName}
-                onChange={(event) =>
-                  setStudentName(event.target.value)
-                }
-                placeholder="Enter student name"
-              />
-            </label>
-
-            <label>
-              Admission Number
-
-              <input
-                value={studentAdNo}
-                onChange={(event) =>
-                  setStudentAdNo(event.target.value)
-                }
-                placeholder="Enter admission number"
-              />
-            </label>
-
-            <label>
-              Class
-
-              <select
-                value={studentClass}
-                onChange={(event) =>
-                  setStudentClass(event.target.value)
-                }
-              >
-                <option value="S1">S1</option>
-                <option value="S2">S2</option>
-                <option value="S3">S3</option>
-                <option value="S4">S4</option>
-              </select>
-            </label>
-
-            <label>
-              Opening Balance
-
-              <input
-                type="number"
-                min="0"
-                value={studentBalance}
-                onChange={(event) =>
-                  setStudentBalance(event.target.value)
-                }
-                placeholder="0"
-              />
-            </label>
-
-            <button
-              type="submit"
-              className="primary-action full-width"
-            >
-              <Plus size={18} />
+            <Plus size={18} />
+            <span>
               Add Student
-            </button>
-          </form>
-        </Modal>
-      )}
+            </span>
+          </button>
+        </div>
 
-      {/* TRANSACTION */}
+        {/* STATS */}
 
-      {selectedStudent && (
-        <Modal
-          title="New Transaction"
-          icon={<Wallet size={20} />}
-          onClose={() => setSelectedStudent(null)}
-        >
-          <div className="transaction-student">
-            <div className="student-mini-avatar">
-              {String(
-                selectedStudent.name || "S"
-              )
-                .charAt(0)
-                .toUpperCase()}
+        <div className="admin-stats">
+
+          <div className="admin-stat-card">
+            <div className="stat-icon">
+              <Users size={20} />
             </div>
 
             <div>
-              <strong>
-                {selectedStudent.name}
-              </strong>
-
               <span>
-                {selectedStudent.adNo} ·{" "}
-                {selectedStudent.className}
+                Students
               </span>
-            </div>
 
-            <div className="transaction-current">
-              {Number(
-                selectedStudent.balance || 0
-              ).toLocaleString("en-IN")}
+              <strong>
+                {
+                  filteredStudents.length
+                }
+              </strong>
             </div>
           </div>
 
-          <form
-            onSubmit={handleTransaction}
-            className="modern-form"
-          >
-            <div className="transaction-type">
-              <button
-                type="button"
-                className={
-                  transactionType === "add"
-                    ? "active add"
-                    : ""
-                }
-                onClick={() =>
-                  setTransactionType("add")
-                }
-              >
-                <ArrowDownToLine size={18} />
-                Add
-              </button>
-
-              <button
-                type="button"
-                className={
-                  transactionType === "deduct"
-                    ? "active deduct"
-                    : ""
-                }
-                onClick={() =>
-                  setTransactionType("deduct")
-                }
-              >
-                <ArrowUpFromLine size={18} />
-                Deduct
-              </button>
+          <div className="admin-stat-card">
+            <div className="stat-icon balance-icon">
+              <Wallet size={20} />
             </div>
 
-            <label>
-              Amount
+            <div>
+              <span>
+                Total Balance
+              </span>
 
-              <input
-                type="number"
-                min="0"
-                value={transactionAmount}
-                onChange={(event) =>
-                  setTransactionAmount(
-                    event.target.value
-                  )
-                }
-                placeholder="Enter amount"
+              <strong>
+                {totalBalance.toLocaleString(
+                  "en-IN"
+                )}
+              </strong>
+            </div>
+          </div>
+
+          <div className="admin-stat-card">
+            <div className="stat-icon">
+              <GraduationCap
+                size={20}
               />
-            </label>
+            </div>
 
-            <label>
-              Reason
+            <div>
+              <span>
+                Class
+              </span>
 
-              <input
-                value={transactionReason}
-                onChange={(event) =>
-                  setTransactionReason(
-                    event.target.value
-                  )
+              <strong>
+                {classFilter ||
+                  "All Classes"}
+              </strong>
+            </div>
+          </div>
+
+        </div>
+
+        {/* SEARCH */}
+
+        <div className="admin-toolbar">
+
+          <div className="modern-search">
+            <Search size={18} />
+
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Search student, admission no..."
+            />
+
+            {search && (
+              <button
+                className="clear-search"
+                onClick={() =>
+                  setSearch("")
                 }
-                placeholder="e.g. Fee payment, books..."
-              />
-            </label>
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
 
-            <button
-              type="submit"
-              className="primary-action full-width"
+          <button
+            className="refresh-button"
+            onClick={() =>
+              window.location.reload()
+            }
+          >
+            <RefreshCw size={17} />
+            Refresh
+          </button>
+
+        </div>
+
+        {/* STUDENTS */}
+
+        {loading ? (
+          <div className="empty-admin">
+
+            <RefreshCw
+              size={25}
+              className="spin"
+            />
+
+            <span>
+              Loading students...
+            </span>
+
+          </div>
+        ) : filteredStudents.length ===
+          0 ? (
+          <div className="empty-admin">
+
+            <Users size={30} />
+
+            <h3>
+              No students found
+            </h3>
+
+            <p>
+              Add a student or change
+              your search.
+            </p>
+
+          </div>
+        ) : (
+          <div className="student-grid">
+            {filteredStudents.map(
+              (student) => (
+                <StudentAdminCard
+                  key={student.id}
+                  student={student}
+                  onTransaction={() =>
+                    setSelectedStudent(
+                      student
+                    )
+                  }
+                  onDelete={() =>
+                    handleDeleteStudent(
+                      student
+                    )
+                  }
+                />
+              )
+            )}
+          </div>
+        )}
+
+        {/* ADD STUDENT MODAL */}
+
+        {showAddStudent && (
+          <Modal
+            title="Add Student"
+            icon={<Plus size={20} />}
+            onClose={() =>
+              setShowAddStudent(false)
+            }
+          >
+            <form
+              onSubmit={
+                handleAddStudent
+              }
+              className="modern-form"
             >
-              <Wallet size={18} />
-              Save Transaction
-            </button>
-          </form>
-        </Modal>
-      )}
 
-      <style>{adminStyles}</style>
-    </div>
+              <label>
+                Student Name
+
+                <input
+                  value={studentName}
+                  onChange={(event) =>
+                    setStudentName(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Enter student name"
+                />
+              </label>
+
+              <label>
+                Admission Number
+
+                <input
+                  value={studentAdNo}
+                  onChange={(event) =>
+                    setStudentAdNo(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Enter admission number"
+                />
+              </label>
+
+              <label>
+                Class
+
+                <select
+                  value={studentClass}
+                  onChange={(event) =>
+                    setStudentClass(
+                      event.target.value
+                    )
+                  }
+                >
+                  <option value="S1">
+                    S1
+                  </option>
+
+                  <option value="S2">
+                    S2
+                  </option>
+
+                  <option value="S3">
+                    S3
+                  </option>
+
+                  <option value="S4">
+                    S4
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                Opening Balance
+
+                <input
+                  type="number"
+                  min="0"
+                  value={studentBalance}
+                  onChange={(event) =>
+                    setStudentBalance(
+                      event.target.value
+                    )
+                  }
+                  placeholder="0"
+                />
+              </label>
+
+              <button
+                type="submit"
+                className="primary-action full-width"
+              >
+                <Plus size={18} />
+                Add Student
+              </button>
+
+            </form>
+          </Modal>
+        )}
+
+        {/* TRANSACTION MODAL */}
+
+        {selectedStudent && (
+          <Modal
+            title="New Transaction"
+            icon={<Wallet size={20} />}
+            onClose={() =>
+              setSelectedStudent(null)
+            }
+          >
+
+            <div className="transaction-student">
+
+              <div className="student-mini-avatar">
+                {String(
+                  selectedStudent.name ||
+                    "S"
+                )
+                  .charAt(0)
+                  .toUpperCase()}
+              </div>
+
+              <div>
+                <strong>
+                  {
+                    selectedStudent.name
+                  }
+                </strong>
+
+                <span>
+                  {
+                    selectedStudent.adNo
+                  }{" "}
+                  ·{" "}
+                  {
+                    selectedStudent.className
+                  }
+                </span>
+              </div>
+
+              <div className="transaction-current">
+                {Number(
+                  selectedStudent.balance ||
+                    0
+                ).toLocaleString(
+                  "en-IN"
+                )}
+              </div>
+
+            </div>
+
+            <form
+              onSubmit={
+                handleTransaction
+              }
+              className="modern-form"
+            >
+
+              <div className="transaction-type">
+
+                <button
+                  type="button"
+                  className={
+                    transactionType ===
+                    "add"
+                      ? "active add"
+                      : ""
+                  }
+                  onClick={() =>
+                    setTransactionType(
+                      "add"
+                    )
+                  }
+                >
+                  <ArrowDownToLine
+                    size={18}
+                  />
+
+                  Add
+                </button>
+
+                <button
+                  type="button"
+                  className={
+                    transactionType ===
+                    "deduct"
+                      ? "active deduct"
+                      : ""
+                  }
+                  onClick={() =>
+                    setTransactionType(
+                      "deduct"
+                    )
+                  }
+                >
+                  <ArrowUpFromLine
+                    size={18}
+                  />
+
+                  Deduct
+                </button>
+
+              </div>
+
+              <label>
+                Amount
+
+                <input
+                  type="number"
+                  min="0"
+                  value={
+                    transactionAmount
+                  }
+                  onChange={(event) =>
+                    setTransactionAmount(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Enter amount"
+                />
+              </label>
+
+              <label>
+                Reason
+
+                <input
+                  value={
+                    transactionReason
+                  }
+                  onChange={(event) =>
+                    setTransactionReason(
+                      event.target.value
+                    )
+                  }
+                  placeholder="e.g. Fee payment, books..."
+                />
+              </label>
+
+              <button
+                type="submit"
+                className="primary-action full-width"
+              >
+                <Wallet size={18} />
+                Save Transaction
+              </button>
+
+            </form>
+
+          </Modal>
+        )}
+
+      </div>
+
+      <style>
+        {adminStyles}
+      </style>
+    </>
   );
 }
 
@@ -698,35 +937,51 @@ function StudentAdminCard({
 }) {
   return (
     <div className="modern-student-card">
+
       <div className="student-card-top">
+
         <div className="student-avatar">
-          {String(student.name || "S")
+          {String(
+            student.name || "S"
+          )
             .charAt(0)
             .toUpperCase()}
         </div>
 
         <div className="student-card-info">
-          <h3>{student.name}</h3>
+          <h3>
+            {student.name}
+          </h3>
 
-          <span>{student.adNo}</span>
+          <span>
+            {student.adNo}
+          </span>
         </div>
 
         <div className="class-pill">
           {student.className}
         </div>
+
       </div>
 
       <div className="student-balance">
-        <span>Current Balance</span>
+
+        <span>
+          Current Balance
+        </span>
 
         <strong>
           {Number(
             student.balance || 0
-          ).toLocaleString("en-IN")}
+          ).toLocaleString(
+            "en-IN"
+          )}
         </strong>
+
       </div>
 
       <div className="student-card-actions">
+
         <button
           className="transaction-button"
           onClick={onTransaction}
@@ -742,7 +997,9 @@ function StudentAdminCard({
         >
           <Trash2 size={17} />
         </button>
+
       </div>
+
     </div>
   );
 }
@@ -762,20 +1019,28 @@ function Modal({
       className="modal-overlay"
       onMouseDown={(event) => {
         if (
-          event.target === event.currentTarget
+          event.target ===
+          event.currentTarget
         ) {
           onClose();
         }
       }}
     >
+
       <div className="modern-modal">
+
         <div className="modal-header">
+
           <div className="modal-title">
+
             <div className="modal-title-icon">
               {icon}
             </div>
 
-            <h2>{title}</h2>
+            <h2>
+              {title}
+            </h2>
+
           </div>
 
           <button
@@ -784,10 +1049,13 @@ function Modal({
           >
             <X size={19} />
           </button>
+
         </div>
 
         {children}
+
       </div>
+
     </div>
   );
 }
@@ -805,195 +1073,281 @@ function DownloadSection({
   const [studentSearch, setStudentSearch] =
     useState("");
 
-  const filteredStudents = students.filter(
-    (student) => {
+  const filteredStudents =
+    students.filter((student) => {
       const query =
-        studentSearch.trim().toLowerCase();
+        studentSearch
+          .trim()
+          .toLowerCase();
 
       if (!query) return true;
 
       return (
-        String(student.name || "")
+        String(
+          student.name || ""
+        )
           .toLowerCase()
           .includes(query) ||
-        String(student.adNo || "")
+        String(
+          student.adNo || ""
+        )
           .toLowerCase()
           .includes(query) ||
-        String(student.className || "")
+        String(
+          student.className || ""
+        )
           .toLowerCase()
           .includes(query)
       );
-    }
-  );
+    });
 
   return (
     <div className="download-page">
+
       {/* HEADER */}
 
       <div className="download-page-header">
+
         <div>
+
           <div className="admin-eyebrow">
             REPORT CENTRE
           </div>
 
-          <h1>Downloads</h1>
+          <h1>
+            Downloads
+          </h1>
 
           <p>
-            Export class and student account
-            reports.
+            Export class and student
+            account reports.
           </p>
+
         </div>
 
         <div className="download-header-icon">
           <Download size={25} />
         </div>
+
       </div>
 
       {/* DETAILED EXCEL */}
 
       <section className="download-section">
+
         <div className="download-section-heading">
+
           <div>
-            <h2>Detailed Excel</h2>
+
+            <h2>
+              Detailed Excel
+            </h2>
 
             <p>
               Each class downloads as a
               separate Excel file.
             </p>
+
           </div>
 
-          <FileSpreadsheet size={21} />
+          <FileSpreadsheet
+            size={21}
+          />
+
         </div>
 
         <div className="class-excel-grid">
-          {classes.map((className) => {
-            const count = students.filter(
-              (student) =>
-                String(
-                  student.className || ""
-                ).toLowerCase() ===
-                String(className).toLowerCase()
-            ).length;
 
-            return (
-              <div
-                className="class-excel-card"
-                key={className}
-              >
-                <div className="class-excel-icon">
-                  <GraduationCap size={21} />
-                </div>
+          {classes.map(
+            (className) => {
 
-                <div className="class-excel-info">
-                  <strong>{className}</strong>
+              const count =
+                students.filter(
+                  (student) =>
+                    String(
+                      student.className ||
+                        ""
+                    ).toLowerCase() ===
+                    String(
+                      className
+                    ).toLowerCase()
+                ).length;
 
-                  <span>
-                    {count} student
-                    {count !== 1 ? "s" : ""}
-                  </span>
-                </div>
-
-                <button
-                  className="excel-download-button"
-                  onClick={() =>
-                    onDetailedExcel(className)
-                  }
-                  title={`Download ${className} Excel`}
+              return (
+                <div
+                  className="class-excel-card"
+                  key={className}
                 >
-                  <Download size={17} />
-                </button>
-              </div>
-            );
-          })}
+
+                  <div className="class-excel-icon">
+                    <GraduationCap
+                      size={21}
+                    />
+                  </div>
+
+                  <div className="class-excel-info">
+
+                    <strong>
+                      {className}
+                    </strong>
+
+                    <span>
+                      {count} student
+                      {count !== 1
+                        ? "s"
+                        : ""}
+                    </span>
+
+                  </div>
+
+                  <button
+                    className="excel-download-button"
+                    onClick={() =>
+                      onDetailedExcel(
+                        className
+                      )
+                    }
+                    title={`Download ${className} Excel`}
+                  >
+                    <Download
+                      size={17}
+                    />
+                  </button>
+
+                </div>
+              );
+            }
+          )}
+
         </div>
+
       </section>
 
       {/* CLASS REPORTS */}
 
       <section className="download-section">
+
         <div className="download-section-heading">
+
           <div>
-            <h2>Class Reports</h2>
+
+            <h2>
+              Class Reports
+            </h2>
 
             <p>
-              Download class balance reports.
+              Download class balance
+              reports.
             </p>
+
           </div>
 
           <FileText size={21} />
+
         </div>
 
         <div className="report-list">
-          {classes.map((className) => (
-            <div
-              className="report-row"
-              key={className}
-            >
-              <div className="report-row-info">
-                <div className="report-icon">
-                  <GraduationCap size={18} />
+
+          {classes.map(
+            (className) => (
+
+              <div
+                className="report-row"
+                key={className}
+              >
+
+                <div className="report-row-info">
+
+                  <div className="report-icon">
+                    <GraduationCap
+                      size={18}
+                    />
+                  </div>
+
+                  <div>
+
+                    <strong>
+                      {className}
+                    </strong>
+
+                    <span>
+                      Class balance report
+                    </span>
+
+                  </div>
+
                 </div>
 
-                <div>
-                  <strong>{className}</strong>
+                <div className="report-actions">
 
-                  <span>
-                    Class balance report
-                  </span>
+                  <button
+                    onClick={() =>
+                      exportClassBalancePDF(
+                        className,
+                        students,
+                        payments
+                      )
+                    }
+                    className="small-report-button"
+                  >
+                    <FileText
+                      size={15}
+                    />
+                    PDF
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      exportClassCSV(
+                        className,
+                        students,
+                        payments
+                      )
+                    }
+                    className="small-report-button"
+                  >
+                    <FileSpreadsheet
+                      size={15}
+                    />
+                    CSV
+                  </button>
+
                 </div>
+
               </div>
 
-              <div className="report-actions">
-                <button
-                  onClick={() =>
-                    exportClassBalancePDF(
-                      className,
-                      students,
-                      payments
-                    )
-                  }
-                  className="small-report-button"
-                >
-                  <FileText size={15} />
-                  PDF
-                </button>
+            )
+          )}
 
-                <button
-                  onClick={() =>
-                    exportClassCSV(
-                      className,
-                      students,
-                      payments
-                    )
-                  }
-                  className="small-report-button"
-                >
-                  <FileSpreadsheet size={15} />
-                  CSV
-                </button>
-              </div>
-            </div>
-          ))}
         </div>
+
       </section>
 
       {/* STUDENT STATEMENTS */}
 
       <section className="download-section">
+
         <div className="download-section-heading">
+
           <div>
-            <h2>Student Statements</h2>
+
+            <h2>
+              Student Statements
+            </h2>
 
             <p>
-              Download individual account
-              statements.
+              Download individual
+              account statements.
             </p>
+
           </div>
 
           <Users size={21} />
+
         </div>
 
         <div className="download-search">
+
           <Search size={17} />
 
           <input
@@ -1005,80 +1359,106 @@ function DownloadSection({
             }
             placeholder="Search students..."
           />
+
         </div>
 
         <div className="student-download-list">
-          {filteredStudents.map((student) => {
-            const transactions = payments
-              .filter(
-                (payment) =>
-                  payment.studentId ===
-                  student.id
-              )
-              .sort(
-                (a, b) =>
-                  getPaymentTime(a) -
-                  getPaymentTime(b)
+
+          {filteredStudents.map(
+            (student) => {
+
+              const transactions =
+                payments
+                  .filter(
+                    (payment) =>
+                      payment.studentId ===
+                      student.id
+                  )
+                  .sort(
+                    (a, b) =>
+                      getPaymentTime(a) -
+                      getPaymentTime(b)
+                  );
+
+              return (
+                <div
+                  className="report-row"
+                  key={student.id}
+                >
+
+                  <div className="report-row-info">
+
+                    <div className="student-list-avatar">
+
+                      {String(
+                        student.name ||
+                          "S"
+                      )
+                        .charAt(0)
+                        .toUpperCase()}
+
+                    </div>
+
+                    <div>
+
+                      <strong>
+                        {student.name}
+                      </strong>
+
+                      <span>
+                        {student.adNo} ·{" "}
+                        {
+                          student.className
+                        }
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                  <div className="report-actions">
+
+                    <button
+                      onClick={() =>
+                        exportStudentBalancePDF(
+                          student,
+                          transactions
+                        )
+                      }
+                      className="small-report-button"
+                    >
+                      <FileText
+                        size={15}
+                      />
+                      PDF
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        exportStudentTransactionsCSV(
+                          student,
+                          transactions
+                        )
+                      }
+                      className="small-report-button"
+                    >
+                      <FileSpreadsheet
+                        size={15}
+                      />
+                      CSV
+                    </button>
+
+                  </div>
+
+                </div>
               );
+            }
+          )}
 
-            return (
-              <div
-                className="report-row"
-                key={student.id}
-              >
-                <div className="report-row-info">
-                  <div className="student-list-avatar">
-                    {String(
-                      student.name || "S"
-                    )
-                      .charAt(0)
-                      .toUpperCase()}
-                  </div>
-
-                  <div>
-                    <strong>
-                      {student.name}
-                    </strong>
-
-                    <span>
-                      {student.adNo} ·{" "}
-                      {student.className}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="report-actions">
-                  <button
-                    onClick={() =>
-                      exportStudentBalancePDF(
-                        student,
-                        transactions
-                      )
-                    }
-                    className="small-report-button"
-                  >
-                    <FileText size={15} />
-                    PDF
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      exportStudentTransactionsCSV(
-                        student,
-                        transactions
-                      )
-                    }
-                    className="small-report-button"
-                  >
-                    <FileSpreadsheet size={15} />
-                    CSV
-                  </button>
-                </div>
-              </div>
-            );
-          })}
         </div>
+
       </section>
+
     </div>
   );
 }
@@ -1087,37 +1467,57 @@ function DownloadSection({
 // PAYMENT DATE
 // =====================================================
 
-function getPaymentTime(payment) {
-  if (payment.createdAt?.toMillis) {
+function getPaymentTime(
+  payment
+) {
+  if (
+    payment.createdAt?.toMillis
+  ) {
     return payment.createdAt.toMillis();
   }
 
-  if (payment.createdAt?.seconds) {
-    return payment.createdAt.seconds * 1000;
+  if (
+    payment.createdAt?.seconds
+  ) {
+    return (
+      payment.createdAt.seconds *
+      1000
+    );
   }
 
-  if (payment.date?.seconds) {
-    return payment.date.seconds * 1000;
+  if (
+    payment.date?.seconds
+  ) {
+    return (
+      payment.date.seconds *
+      1000
+    );
   }
 
-  const time = new Date(
-    payment.date || 0
-  ).getTime();
+  const time =
+    new Date(
+      payment.date || 0
+    ).getTime();
 
-  return Number.isNaN(time) ? 0 : time;
+  return Number.isNaN(time)
+    ? 0
+    : time;
 }
 
 // =====================================================
-// STYLES
+// ADMIN / DOWNLOAD STYLES
 // =====================================================
 
 const adminStyles = `
+
 .admin-dashboard,
 .download-page {
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
 }
+
+/* HEADER */
 
 .admin-topbar,
 .download-page-header {
@@ -1152,6 +1552,8 @@ const adminStyles = `
   font-size: 14px;
 }
 
+/* BUTTON */
+
 .primary-action {
   border: 0;
   background: #087f73;
@@ -1166,7 +1568,9 @@ const adminStyles = `
   font-weight: 700;
   cursor: pointer;
   transition: .2s ease;
-  box-shadow: 0 7px 18px rgba(8,127,115,.16);
+  box-shadow:
+    0 7px 18px
+    rgba(8,127,115,.16);
 }
 
 .primary-action:hover {
@@ -1178,9 +1582,12 @@ const adminStyles = `
   width: 100%;
 }
 
+/* STATS */
+
 .admin-stats {
   display: grid;
-  grid-template-columns: repeat(3,1fr);
+  grid-template-columns:
+    repeat(3,1fr);
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -1193,7 +1600,9 @@ const adminStyles = `
   display: flex;
   align-items: center;
   gap: 13px;
-  box-shadow: 0 5px 20px rgba(18,49,57,.045);
+  box-shadow:
+    0 5px 20px
+    rgba(18,49,57,.045);
 }
 
 .stat-icon {
@@ -1223,6 +1632,8 @@ const adminStyles = `
   color: #18343c;
   font-size: 20px;
 }
+
+/* SEARCH */
 
 .admin-toolbar {
   display: flex;
@@ -1280,9 +1691,12 @@ const adminStyles = `
   cursor: pointer;
 }
 
+/* STUDENTS */
+
 .student-grid {
   display: grid;
-  grid-template-columns: repeat(3,minmax(0,1fr));
+  grid-template-columns:
+    repeat(3,minmax(0,1fr));
   gap: 14px;
 }
 
@@ -1292,13 +1706,17 @@ const adminStyles = `
   border-radius: 16px;
   padding: 16px;
   transition: .2s ease;
-  box-shadow: 0 5px 18px rgba(18,49,57,.04);
+  box-shadow:
+    0 5px 18px
+    rgba(18,49,57,.04);
 }
 
 .modern-student-card:hover {
   transform: translateY(-2px);
   border-color: #c7dfdc;
-  box-shadow: 0 10px 25px rgba(18,49,57,.08);
+  box-shadow:
+    0 10px 25px
+    rgba(18,49,57,.08);
 }
 
 .student-card-top {
@@ -1404,6 +1822,8 @@ const adminStyles = `
   cursor: pointer;
 }
 
+/* EMPTY */
+
 .empty-admin {
   min-height: 260px;
   background: white;
@@ -1428,7 +1848,8 @@ const adminStyles = `
 }
 
 .spin {
-  animation: admin-spin 1s linear infinite;
+  animation:
+    admin-spin 1s linear infinite;
 }
 
 @keyframes admin-spin {
@@ -1443,7 +1864,8 @@ const adminStyles = `
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(11,32,38,.45);
+  background:
+    rgba(11,32,38,.45);
   backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
@@ -1454,11 +1876,14 @@ const adminStyles = `
 .modern-modal {
   width: 100%;
   max-width: 460px;
-  max-height: calc(100vh - 36px);
+  max-height:
+    calc(100vh - 36px);
   overflow-y: auto;
   background: white;
   border-radius: 19px;
-  box-shadow: 0 25px 70px rgba(0,0,0,.2);
+  box-shadow:
+    0 25px 70px
+    rgba(0,0,0,.2);
   padding: 20px;
 }
 
@@ -1503,6 +1928,8 @@ const adminStyles = `
   cursor: pointer;
 }
 
+/* FORMS */
+
 .modern-form {
   display: flex;
   flex-direction: column;
@@ -1532,11 +1959,7 @@ const adminStyles = `
   font-size: 13px;
 }
 
-.modern-form input:focus,
-.modern-form select:focus {
-  border-color: #55a99f;
-  box-shadow: 0 0 0 3px rgba(8,127,115,.08);
-}
+/* TRANSACTION */
 
 .transaction-student {
   display: flex;
@@ -1583,7 +2006,8 @@ const adminStyles = `
 
 .transaction-type {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns:
+    1fr 1fr;
   gap: 8px;
 }
 
@@ -1613,7 +2037,7 @@ const adminStyles = `
   border-color: #efc2c2;
 }
 
-/* DOWNLOADS */
+/* DOWNLOAD HEADER */
 
 .download-header-icon {
   width: 48px;
@@ -1625,13 +2049,17 @@ const adminStyles = `
   place-items: center;
 }
 
+/* DOWNLOAD SECTIONS */
+
 .download-section {
   background: white;
   border: 1px solid #e2eaec;
   border-radius: 16px;
   padding: 18px;
   margin-bottom: 16px;
-  box-shadow: 0 5px 20px rgba(18,49,57,.035);
+  box-shadow:
+    0 5px 20px
+    rgba(18,49,57,.035);
 }
 
 .download-section-heading {
@@ -1654,9 +2082,12 @@ const adminStyles = `
   font-size: 12px;
 }
 
+/* EXCEL CLASS CARDS */
+
 .class-excel-grid {
   display: grid;
-  grid-template-columns: repeat(4,1fr);
+  grid-template-columns:
+    repeat(4,1fr);
   gap: 10px;
 }
 
@@ -1674,6 +2105,9 @@ const adminStyles = `
 .class-excel-card:hover {
   border-color: #b8d9d5;
   transform: translateY(-1px);
+  box-shadow:
+    0 7px 18px
+    rgba(18,49,57,.06);
 }
 
 .class-excel-icon {
@@ -1714,7 +2148,15 @@ const adminStyles = `
   display: grid;
   place-items: center;
   cursor: pointer;
+  transition: .18s ease;
 }
+
+.excel-download-button:hover {
+  background: #066b61;
+  transform: translateY(-1px);
+}
+
+/* REPORTS */
 
 .report-list,
 .student-download-list {
@@ -1794,6 +2236,7 @@ const adminStyles = `
   font-size: 10px;
   font-weight: 750;
   cursor: pointer;
+  transition: .18s ease;
 }
 
 .small-report-button:hover {
@@ -1806,17 +2249,24 @@ const adminStyles = `
   margin-bottom: 9px;
 }
 
+/* RESPONSIVE */
+
 @media (max-width: 1050px) {
+
   .student-grid {
-    grid-template-columns: repeat(2,1fr);
+    grid-template-columns:
+      repeat(2,1fr);
   }
 
   .class-excel-grid {
-    grid-template-columns: repeat(2,1fr);
+    grid-template-columns:
+      repeat(2,1fr);
   }
+
 }
 
 @media (max-width: 700px) {
+
   .admin-topbar,
   .download-page-header {
     align-items: flex-start;
@@ -1836,7 +2286,8 @@ const adminStyles = `
   }
 
   .class-excel-grid {
-    grid-template-columns: repeat(2,1fr);
+    grid-template-columns:
+      repeat(2,1fr);
   }
 
   .admin-toolbar {
@@ -1846,9 +2297,11 @@ const adminStyles = `
   .refresh-button {
     justify-content: center;
   }
+
 }
 
 @media (max-width: 480px) {
+
   .admin-topbar,
   .download-page-header {
     flex-direction: column;
@@ -1879,5 +2332,6 @@ const adminStyles = `
   .modern-modal {
     padding: 16px;
   }
+
 }
 `;
